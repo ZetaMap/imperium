@@ -17,18 +17,15 @@
  */
 package com.xpdustry.imperium.common.account
 
-import java.time.Instant
+import com.xpdustry.imperium.common.hash.Hash
 import kotlin.time.Duration
 
-data class Account(
+data class LegacyAccount(
     val id: Int,
     val username: String,
-    val discord: Long?,
+    val password: Hash,
     val games: Int,
     val playtime: Duration,
-    val creation: Instant,
     val rank: Rank,
     val achievements: Set<Achievement>,
-    val metadata: Map<String, String>,
-    val legacy: Boolean,
 )

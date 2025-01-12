@@ -33,7 +33,7 @@ fun <T : Any> List<T>.findMostCommon(): T? {
     return max
 }
 
-inline fun <reified T : Enum<T>> enumSetOf(vararg elements: T): Set<T> =
+inline fun <reified T : Enum<T>> enumSetOf(vararg elements: T): MutableSet<T> =
     EnumSet.noneOf(T::class.java).apply { addAll(elements) }
 
 inline fun <reified T : Enum<T>> enumSetAllOf(): Set<T> = EnumSet.allOf(T::class.java)

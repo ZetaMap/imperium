@@ -17,12 +17,12 @@
  */
 package com.xpdustry.imperium.common.hash
 
-import com.xpdustry.imperium.common.misc.encodeBase64
 import java.util.Objects
 
 fun Hash(hash: ByteArray, salt: ByteArray, params: HashParams): Hash =
     Hash(params, hash.clone(), salt.clone())
 
+// TODO Convert to data class
 class Hash
 internal constructor(
     val params: HashParams,
@@ -43,8 +43,9 @@ internal constructor(
 
     override fun hashCode() = Objects.hash(_hash.contentHashCode(), _salt.contentHashCode(), params)
 
+    @OptIn(ExperimentalStdlibApi::class)
     override fun toString() =
-        "Hash(hash=${_hash.encodeBase64()}, salt=${_salt.encodeBase64()}, params=$params)"
+        "Hash(hash=${_hash.toHexString()}, salt=${_salt.toHexString()}, params=$params)"
 }
 
 // Stolen from password4j

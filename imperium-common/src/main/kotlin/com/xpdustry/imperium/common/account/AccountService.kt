@@ -17,18 +17,17 @@
  */
 package com.xpdustry.imperium.common.account
 
-import java.time.Instant
-import kotlin.time.Duration
+interface AccountService : AccountRepository {
 
-data class Account(
-    val id: Int,
-    val username: String,
-    val discord: Long?,
-    val games: Int,
-    val playtime: Duration,
-    val creation: Instant,
-    val rank: Rank,
-    val achievements: Set<Achievement>,
-    val metadata: Map<String, String>,
-    val legacy: Boolean,
-)
+    suspend fun register(username: String, password: String): AccountResult
+
+    suspend fun login(username: String, password: String): AccountResult
+
+    suspend fun logout(username: String): AccountResult
+
+    suspend fun getAchievements(username: String): List<Achievement>
+
+    suspend fun addAchievement(username: String, achievement: Achievement): AccountResult
+
+    suspend fun removeAchievement(username: String, achievement: Achievement): AccountResult
+}

@@ -15,20 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.database
 
-import java.time.Instant
-import kotlin.time.Duration
+import java.sql.Connection
+import javax.sql.DataSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-data class Account(
-    val id: Int,
-    val username: String,
-    val discord: Long?,
-    val games: Int,
-    val playtime: Duration,
-    val creation: Instant,
-    val rank: Rank,
-    val achievements: Set<Achievement>,
-    val metadata: Map<String, String>,
-    val legacy: Boolean,
-)
+suspend fun <T> DataSource.transaction(block: (Connection) -> T): T =
+    withContext(Dispatchers.IO) {
+        val connection = this@transaction.connection
+        connection.autoCommit = false
+        connection.transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED
+        try {
+            val result = block(connection)
+            connection.commit()
+            return@withContext result
+        } catch (e: Exception) {
+            connection.rollback()
+            throw e
+        } finally {
+            connection.close()
+        }
+    }
