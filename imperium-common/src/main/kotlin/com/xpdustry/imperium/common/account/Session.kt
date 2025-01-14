@@ -17,11 +17,16 @@
  */
 package com.xpdustry.imperium.common.account
 
-interface AccountService : AccountRepository {
+import java.net.InetAddress
+import java.time.Instant
 
-    suspend fun register(username: String, password: String): AccountResult
+sealed interface Session
 
-    suspend fun login(username: String, password: String): AccountResult
-
-    suspend fun logout(username: String): AccountResult
+data class MindustrySession(
+    val key: Key,
+    val server: String,
+    val account: Int,
+    val expiration: Instant
+) : Session {
+    data class Key(val uuid: String, val usid: String, val address: InetAddress)
 }

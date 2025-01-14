@@ -20,20 +20,24 @@ package com.xpdustry.imperium.common.account
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.collection.enumSetOf
 import com.xpdustry.imperium.common.database.transaction
-import com.xpdustry.imperium.common.hash.Hash
+import java.sql.Connection
 import java.sql.PreparedStatement
+import java.sql.ResultSet
+import java.sql.Statement
 import javax.sql.DataSource
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.plus
-import org.jetbrains.exposed.sql.and
 
 interface AccountRepository {
+
+    suspend fun insertAccount(username: String, password: Password): Int?
 
     suspend fun selectByUsername(username: String): Account?
 
     suspend fun selectById(id: Int): Account?
+
+    suspend fun existsById(id: Int): Boolean
 
     suspend fun selectByDiscord(discord: Long): Account?
 
@@ -43,11 +47,11 @@ interface AccountRepository {
 
     suspend fun incrementPlaytime(id: Int, duration: Duration): Boolean
 
+    suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Boolean
+
     suspend fun updateRank(id: Int, rank: Rank): Boolean
 
-    suspend fun updatePassword(id: Int, password: Hash): Boolean
-
-    suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Boolean
+    suspend fun updatePassword(id: Int, password: Password): Boolean
 
     suspend fun updateMetadata(id: Int, key: String, value: String): Boolean
 }
@@ -64,6 +68,7 @@ class SQLAccountRepository(private val source: DataSource) :
                         CREATE TABLE IF NOT EXISTS `account` (
                             `id`                INT             NOT NULL AUTO_INCREMENT,
                             `username`          VARCHAR(32)     NOT NULL,
+                            `discord`           BIGINT                   DEFAULT NULL,
                             `password_hash`     BINARY(64)      NOT NULL,
                             `password_salt`     BINARY(64)      NOT NULL,
                             `games`             INT             NOT NULL DEFAULT 0,
@@ -76,6 +81,14 @@ class SQLAccountRepository(private val source: DataSource) :
                             CONSTRAINT `uq_account_username`
                                 UNIQUE (`username`)
                         )
+                        """
+                            .trimIndent())
+                    .use { statement -> statement.executeUpdate() }
+
+                connection
+                    .prepareStatement(
+                        """
+                        CREATE INDEX IF NOT EXISTS `idx_account_discord` ON `account` (`discord`)
                         """
                             .trimIndent())
                     .use { statement -> statement.executeUpdate() }
@@ -118,11 +131,38 @@ class SQLAccountRepository(private val source: DataSource) :
         }
     }
 
+    override suspend fun insertAccount(username: String, password: Password) =
+        source.transaction { connection ->
+            connection
+                .prepareStatement(
+                    """
+                    INSERT INTO `account` (`username`, `password_hash`, `password_salt`)
+                    VALUES (?, ?, ?)
+                    """
+                        .trimIndent(),
+                    Statement.RETURN_GENERATED_KEYS)
+                .use { statement ->
+                    statement.setString(1, username)
+                    statement.setBytes(2, password.hash)
+                    statement.setBytes(3, password.salt)
+                    if (statement.executeUpdate() == 0) {
+                        return@transaction null
+                    }
+                    statement.generatedKeys.use { result ->
+                        if (!result.next()) return@transaction null
+                        result.getInt(1)
+                    }
+                }
+        }
+
     override suspend fun selectByUsername(username: String) =
         selectBy0("SELECT * FROM `account` WHERE `username` = ?") { it.setString(1, username) }
 
     override suspend fun selectById(id: Int) =
         selectBy0("SELECT * FROM `account` WHERE `id` = ?") { it.setInt(1, id) }
+
+    override suspend fun existsById(id: Int) =
+        source.transaction { connection -> existsById(connection, id) }
 
     override suspend fun selectByDiscord(discord: Long) =
         selectBy0("SELECT * FROM `account` WHERE `discord` = ?") { it.setLong(1, discord) }
@@ -140,7 +180,10 @@ class SQLAccountRepository(private val source: DataSource) :
                     val achievements = enumSetOf<Achievement>()
                     connection
                         .prepareStatement(
-                            "SELECT `achievement` FROM `account_achievement` WHERE `account_id` = ?")
+                            """
+                            SELECT `achievement` FROM `account_achievement` WHERE `account_id` = ?
+                            """
+                                .trimIndent())
                         .use { statement ->
                             statement.setInt(1, id)
                             statement.executeQuery().use { result ->
@@ -153,7 +196,10 @@ class SQLAccountRepository(private val source: DataSource) :
                     val metadata = HashMap<String, String>()
                     connection
                         .prepareStatement(
-                            "SELECT `key`, `value` FROM `account_metadata` WHERE `account_id` = ?")
+                            """
+                            SELECT `key`, `value` FROM `account_metadata` WHERE `account_id` = ?
+                            """
+                                .trimIndent())
                         .use { statement ->
                             statement.setInt(1, id)
                             statement.executeQuery().use { result ->
@@ -230,45 +276,9 @@ class SQLAccountRepository(private val source: DataSource) :
                 }
         }
 
-    override suspend fun updateRank(id: Int, rank: Rank) =
-        source.transaction { connection ->
-            connection
-                .prepareStatement(
-                    """
-                    UPDATE `account`
-                    SET `rank` = ?
-                    WHERE `id` = ?
-                    LIMIT 1
-                    """
-                        .trimIndent())
-                .use { statement ->
-                    statement.setString(1, rank.name)
-                    statement.setInt(2, id)
-                    statement.executeUpdate() > 0
-                }
-        }
-
-    override suspend fun updatePassword(id: Int, password: Hash) =
-        source.transaction { connection ->
-            connection
-                .prepareStatement(
-                    """
-                    UPDATE `account`
-                    SET `password_hash` = ?, `password_salt` = ?
-                    WHERE `id` = ?
-                    LIMIT 1
-                    """
-                        .trimIndent())
-                .use { statement ->
-                    statement.setBytes(1, password.hash)
-                    statement.setBytes(2, password.salt)
-                    statement.setInt(3, id)
-                    statement.executeUpdate() > 0
-                }
-        }
-
     override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean) =
         source.transaction { connection ->
+            if (!existsById(connection, id)) return@transaction false
             if (completed) {
                 connection
                     .prepareStatement(
@@ -299,8 +309,48 @@ class SQLAccountRepository(private val source: DataSource) :
             }
         }
 
+    override suspend fun updateRank(id: Int, rank: Rank) =
+        source.transaction { connection ->
+            if (!existsById(connection, id)) return@transaction false
+            connection
+                .prepareStatement(
+                    """
+                    UPDATE `account`
+                    SET `rank` = ?
+                    WHERE `id` = ?
+                    LIMIT 1
+                    """
+                        .trimIndent())
+                .use { statement ->
+                    statement.setString(1, rank.name)
+                    statement.setInt(2, id)
+                    statement.executeUpdate() > 0
+                }
+        }
+
+    override suspend fun updatePassword(id: Int, password: Password) =
+        source.transaction { connection ->
+            if (!existsById(connection, id)) return@transaction false
+            connection
+                .prepareStatement(
+                    """
+                    UPDATE `account`
+                    SET `password_hash` = ?, `password_salt` = ?
+                    WHERE `id` = ?
+                    LIMIT 1
+                    """
+                        .trimIndent())
+                .use { statement ->
+                    statement.setBytes(1, password.hash)
+                    statement.setBytes(2, password.salt)
+                    statement.setInt(3, id)
+                    statement.executeUpdate() > 0
+                }
+        }
+
     override suspend fun updateMetadata(id: Int, key: String, value: String) =
         source.transaction { connection ->
+            if (!existsById(connection, id)) return@transaction false
             connection
                 .prepareStatement(
                     """
@@ -317,4 +367,16 @@ class SQLAccountRepository(private val source: DataSource) :
                     statement.executeUpdate() > 0
                 }
         }
+
+    private fun existsById(connection: Connection, id: Int): Boolean =
+        connection
+            .prepareStatement(
+                """
+                SELECT 1 FROM `account` WHERE `id` = ? LIMIT 1
+                """
+                    .trimIndent())
+            .use { statement ->
+                statement.setInt(1, id)
+                statement.executeQuery().use(ResultSet::next)
+            }
 }

@@ -17,11 +17,17 @@
  */
 package com.xpdustry.imperium.common.account
 
-interface AccountService : AccountRepository {
+import java.util.Objects
 
-    suspend fun register(username: String, password: String): AccountResult
+data class Password(val hash: ByteArray, val salt: ByteArray) {
 
-    suspend fun login(username: String, password: String): AccountResult
+    override fun equals(other: Any?) =
+        other == this ||
+            (other is Password && hash.contentEquals(other.hash) && salt.contentEquals(other.salt))
 
-    suspend fun logout(username: String): AccountResult
+    override fun hashCode() = Objects.hash(hash.contentHashCode(), salt.contentHashCode())
+
+    @OptIn(ExperimentalStdlibApi::class)
+    override fun toString() =
+        "Password(hash=${hash.toHexString(HexFormat.UpperCase)}, salt=${salt.toHexString(HexFormat.UpperCase)})"
 }
