@@ -27,9 +27,9 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.runBlocking
 
-interface AccountMindustrySessionRepository {
+interface MindustrySessionRepository {
 
-    suspend fun insertSession(session: MindustrySession): Int?
+    suspend fun upsertSession(session: MindustrySession): Int?
 
     suspend fun selectByKey(key: MindustrySession.Key): MindustrySession?
 
@@ -40,10 +40,8 @@ interface AccountMindustrySessionRepository {
     suspend fun deleteByAccount(id: Int): Boolean
 }
 
-class SQLAccountSessionRepository(
-    private val source: DataSource,
-    private val accounts: AccountRepository
-) : AccountMindustrySessionRepository, ImperiumApplication.Listener {
+class SQLSessionRepository(private val source: DataSource, private val accounts: AccountRepository) :
+    MindustrySessionRepository, ImperiumApplication.Listener {
 
     override fun onImperiumInit() {
         runBlocking {
@@ -66,30 +64,34 @@ class SQLAccountSessionRepository(
                                 ON DELETE CASCADE
                         )
                         """
-                            .trimIndent())
+                            .trimIndent()
+                    )
                     .use { statement -> statement.executeUpdate() }
             }
         }
     }
 
     @OptIn(ExperimentalEncodingApi::class)
-    override suspend fun insertSession(session: MindustrySession): Int? {
+    override suspend fun upsertSession(session: MindustrySession): Int? {
         if (!accounts.existsById(session.account)) return null
-        source.transaction { connection ->
+        return source.transaction { connection ->
             connection
                 .prepareStatement(
                     """
                     INSERT INTO `account_session_mindustry` (`account_id`, `uuid`, `usid`, `address`, `server`, `expiration`)
                     VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE `server` = VALUES(`server`), `expiration` = VALUES(`expiration`);
                     """
                         .trimIndent(),
-                    Statement.RETURN_GENERATED_KEYS)
+                    Statement.RETURN_GENERATED_KEYS,
+                )
                 .use { statement ->
-                    statement.setBytes(1, Base64.decode(session.key.uuid))
-                    statement.setBytes(2, Base64.decode(session.key.usid))
-                    statement.setBytes(3, session.key.address.address)
-                    statement.setString(4, session.server)
-                    statement.setTimestamp(5, Timestamp.from(session.expiration))
+                    statement.setInt(1, session.account)
+                    statement.setBytes(2, Base64.decode(session.key.uuid))
+                    statement.setBytes(3, Base64.decode(session.key.usid))
+                    statement.setBytes(4, session.key.address.address)
+                    statement.setString(5, session.server)
+                    statement.setTimestamp(6, Timestamp.from(session.expiration))
                     if (statement.executeUpdate() == 0) {
                         return@transaction null
                     }
@@ -111,7 +113,8 @@ class SQLAccountSessionRepository(
                     WHERE `uuid` = ? AND `usid` = ? AND `address` = ?
                     LIMIT 1;
                     """
-                        .trimIndent())
+                        .trimIndent()
+                )
                 .use { statement ->
                     statement.setBytes(1, Base64.decode(key.uuid))
                     statement.setBytes(2, Base64.decode(key.usid))
@@ -122,7 +125,8 @@ class SQLAccountSessionRepository(
                             key,
                             result.getString("server"),
                             result.getInt("account_id"),
-                            result.getTimestamp("expiration").toInstant())
+                            result.getTimestamp("expiration").toInstant(),
+                        )
                     }
                 }
         }
@@ -136,7 +140,8 @@ class SQLAccountSessionRepository(
                     DELETE FROM `account_session_mindustry`
                     WHERE `uuid` = ? AND `usid` = ? AND `address` = ?
                     """
-                        .trimIndent())
+                        .trimIndent()
+                )
                 .use { statement ->
                     statement.setBytes(1, Base64.decode(key.uuid))
                     statement.setBytes(2, Base64.decode(key.usid))
@@ -154,7 +159,8 @@ class SQLAccountSessionRepository(
                     SELECT `uuid`, `usid`, `address`, `server`, `account_id`, `expiration` FROM `account_session_mindustry`
                     WHERE `account_id` = ?
                     """
-                        .trimIndent())
+                        .trimIndent()
+                )
                 .use { statement ->
                     statement.setInt(1, id)
                     statement.executeQuery().use { result ->
@@ -165,10 +171,12 @@ class SQLAccountSessionRepository(
                                     MindustrySession.Key(
                                         Base64.encode(result.getBytes("uuid")),
                                         Base64.encode(result.getBytes("usid")),
-                                        InetAddress.getByAddress(result.getBytes("address"))),
+                                        InetAddress.getByAddress(result.getBytes("address")),
+                                    ),
                                     result.getString("server"),
                                     result.getInt("account_id"),
-                                    result.getTimestamp("expiration").toInstant())
+                                    result.getTimestamp("expiration").toInstant(),
+                                )
                         }
                         sessions
                     }
@@ -183,7 +191,8 @@ class SQLAccountSessionRepository(
                     DELETE FROM `account_session_mindustry`
                     WHERE `account_id` = ?
                     """
-                        .trimIndent())
+                        .trimIndent()
+                )
                 .use { statement ->
                     statement.setInt(1, id)
                     statement.executeUpdate() > 0

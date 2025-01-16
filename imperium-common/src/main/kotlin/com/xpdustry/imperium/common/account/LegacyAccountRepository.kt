@@ -18,23 +18,17 @@
 package com.xpdustry.imperium.common.account
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
-import com.xpdustry.imperium.common.collection.enumSetOf
 import com.xpdustry.imperium.common.database.transaction
-import com.xpdustry.imperium.common.hash.Hash
-import com.xpdustry.imperium.common.hash.PBKDF2Params
 import java.security.MessageDigest
 import javax.sql.DataSource
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
 
 interface LegacyAccountRepository {
 
-    suspend fun selectByUsername(username: String): LegacyAccount?
-
-    suspend fun deleteById(id: Int): Boolean
+    suspend fun existsByUsername(username: String): Boolean
 }
 
-class ExposedLegacyAccountRepository(private val source: DataSource) :
+class SQLLegacyAccountRepository(private val source: DataSource) :
     LegacyAccountRepository, ImperiumApplication.Listener {
     override fun onImperiumInit() {
         runBlocking {
@@ -56,7 +50,17 @@ class ExposedLegacyAccountRepository(private val source: DataSource) :
                                 UNIQUE (`username_hash`)
                         )
                         """
-                            .trimIndent())
+                            .trimIndent()
+                    )
+                    .use { statement -> statement.executeUpdate() }
+
+                connection
+                    .prepareStatement(
+                        """
+                        CREATE INDEX IF NOT EXISTS `idx_legacy_account_username_hash` ON `legacy_account` (`username_hash`)
+                        """
+                            .trimIndent()
+                    )
                     .use { statement -> statement.executeUpdate() }
 
                 connection
@@ -73,68 +77,20 @@ class ExposedLegacyAccountRepository(private val source: DataSource) :
                                 ON DELETE CASCADE
                         )
                         """
-                            .trimIndent())
+                            .trimIndent()
+                    )
                     .use { statement -> statement.executeUpdate() }
             }
         }
     }
 
-    override suspend fun selectByUsername(username: String) =
+    override suspend fun existsByUsername(username: String) =
         source.transaction { connection ->
             val hashed = MessageDigest.getInstance("SHA-256").digest(username.toByteArray())
-            connection
-                .prepareStatement(
-                    "SELECT * FROM `legacy_account` WHERE `username_hash` = ? LIMIT 1;")
-                .use { statement ->
-                    statement.setBytes(1, hashed)
-                    statement.executeQuery().use { result ->
-                        val id = result.getInt("id")
-                        val achievements = enumSetOf<Achievement>()
-                        connection
-                            .prepareStatement(
-                                "SELECT `achievement` FROM `legacy_account_achievement` WHERE `legacy_account_id` = ?")
-                            .use { statement ->
-                                statement.setInt(1, id)
-                                statement.executeQuery().use { result ->
-                                    while (result.next()) {
-                                        achievements +=
-                                            Achievement.valueOf(result.getString("achievement"))
-                                    }
-                                }
-                            }
-                        val password =
-                            Hash(
-                                LEGACY_PASSWORD_PARAMS,
-                                result.getBytes("password_hash"),
-                                result.getBytes("password_salt"))
-                        LegacyAccount(
-                            id = id,
-                            username = username.lowercase(),
-                            password = password,
-                            games = result.getInt("games"),
-                            playtime = result.getLong("playtime").seconds,
-                            rank = Rank.valueOf(result.getString("rank")),
-                            achievements = achievements)
-                    }
-                }
-        }
-
-    override suspend fun deleteById(id: Int) =
-        source.transaction { connection ->
-            connection.prepareStatement("DELETE FROM `legacy_account` WHERE `id` = ?").use {
+            connection.prepareStatement("SELECT 1 FROM `legacy_account` WHERE `username_hash` = ? LIMIT 1").use {
                 statement ->
-                statement.setInt(1, id)
-                statement.executeUpdate() > 0
+                statement.setBytes(1, hashed)
+                statement.executeQuery().next()
             }
         }
-
-    companion object {
-        internal val LEGACY_PASSWORD_PARAMS =
-            PBKDF2Params(
-                hmac = PBKDF2Params.Hmac.SHA256,
-                iterations = 10000,
-                length = 256,
-                saltLength = 16,
-            )
-    }
 }

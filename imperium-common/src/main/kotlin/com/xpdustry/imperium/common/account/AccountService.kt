@@ -17,11 +17,55 @@
  */
 package com.xpdustry.imperium.common.account
 
-interface AccountService : AccountRepository {
+import com.xpdustry.imperium.common.security.requirement.PasswordRequirement
+import com.xpdustry.imperium.common.security.requirement.UsernameRequirement
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-    suspend fun register(username: String, password: String): AccountResult
+interface AccountService {
 
-    suspend fun login(username: String, password: String): AccountResult
+    suspend fun register(username: String, password: CharArray): AccountResult
 
-    suspend fun logout(username: String): AccountResult
+    suspend fun changePassword(id: Int, oldPassword: CharArray, newPassword: CharArray): AccountResult
+}
+
+class SimpleAccountService(
+    private val accounts: AccountRepository,
+    private val legacy: LegacyAccountRepository,
+    private val passwords: PasswordHashFunction,
+) : AccountService {
+
+    override suspend fun register(username: String, password: CharArray): AccountResult {
+        if (accounts.existsByUsername(username)) {
+            return AccountResult.AlreadyRegistered
+        }
+        if (legacy.existsByUsername(username)) {
+            return AccountResult.InvalidUsername(listOf(UsernameRequirement.Reserved(username)))
+        }
+        val missingPwdRequirements = PasswordRequirement.DEFAULT.filter { !it.check(password) }
+        if (missingPwdRequirements.isNotEmpty()) {
+            return AccountResult.InvalidPassword(missingPwdRequirements)
+        }
+        val missingUsrRequirements = UsernameRequirement.DEFAULT.filter { !it.check(username) }
+        if (missingUsrRequirements.isNotEmpty()) {
+            return AccountResult.InvalidUsername(missingUsrRequirements)
+        }
+        val hash = withContext(Dispatchers.IO) { passwords.hash(password) }
+        return AccountResult.Success(accounts.insertAccount(username, hash))
+    }
+
+    override suspend fun changePassword(id: Int, oldPassword: CharArray, newPassword: CharArray): AccountResult {
+        val oldHash0 = accounts.selectPasswordById(id) ?: return AccountResult.NotFound
+        val oldHash1 = withContext(Dispatchers.IO) { passwords.hash(oldPassword, oldHash0.salt) }
+        if (oldHash0 != oldHash1) {
+            return AccountResult.WrongPassword
+        }
+        val missing = PasswordRequirement.DEFAULT.filter { !it.check(newPassword) }
+        if (missing.isNotEmpty()) {
+            return AccountResult.InvalidPassword(missing)
+        }
+        val newHash = withContext(Dispatchers.IO) { passwords.hash(newPassword) }
+        accounts.updatePassword(id, newHash)
+        return AccountResult.Success(id)
+    }
 }

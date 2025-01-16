@@ -34,6 +34,7 @@ dependencies {
     testRuntimeOnly(libs.h2)
 
     api(libs.influxdb)
+    api(libs.bouncycastle)
 }
 
 // We love OOMs :^)

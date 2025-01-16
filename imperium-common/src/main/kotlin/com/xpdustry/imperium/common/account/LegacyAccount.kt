@@ -17,13 +17,12 @@
  */
 package com.xpdustry.imperium.common.account
 
-import com.xpdustry.imperium.common.hash.Hash
 import kotlin.time.Duration
 
 data class LegacyAccount(
     val id: Int,
     val username: String,
-    val password: Hash,
+    val password: PasswordHash,
     val games: Int,
     val playtime: Duration,
     val rank: Rank,

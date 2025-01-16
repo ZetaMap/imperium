@@ -15,7 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.security
+package com.xpdustry.imperium.common.security.requirement
+
+import java.io.BufferedReader
 
 sealed interface UsernameRequirement {
     fun check(username: String): Boolean
@@ -37,24 +39,22 @@ sealed interface UsernameRequirement {
 
         override fun check(username: String) = username !in reserved
     }
-}
 
-fun List<UsernameRequirement>.findMissingUsernameRequirements(username: String): List<UsernameRequirement> {
-    return filter { !it.check(username) }
+    companion object {
+        val DEFAULT =
+            listOf(
+                InvalidSymbol(allowed = setOf('_')),
+                AllLowercase,
+                Length(3, 32),
+                Reserved(
+                    UsernameRequirement::class
+                        .java
+                        .getResourceAsStream("/reserved-usernames.txt")!!
+                        .bufferedReader()
+                        .use(BufferedReader::readLines)
+                        .filter { it.isNotBlank() && !it.startsWith('#') }
+                        .toSet()
+                ),
+            )
+    }
 }
-
-val DEFAULT_USERNAME_REQUIREMENTS =
-    listOf(
-        UsernameRequirement.InvalidSymbol(allowed = setOf('_')),
-        UsernameRequirement.AllLowercase,
-        UsernameRequirement.Length(3, 32),
-        UsernameRequirement.Reserved(
-            UsernameRequirement::class
-                .java
-                .getResourceAsStream("/reserved-usernames.txt")!!
-                .bufferedReader()
-                .use { it.readLines() }
-                .filter { it.isNotBlank() && !it.startsWith('#') }
-                .toSet()
-        ),
-    )

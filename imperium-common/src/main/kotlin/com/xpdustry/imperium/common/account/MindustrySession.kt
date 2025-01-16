@@ -17,17 +17,12 @@
  */
 package com.xpdustry.imperium.common.account
 
-import java.util.Objects
+import java.net.InetAddress
+import java.time.Instant
 
-data class Password(val hash: ByteArray, val salt: ByteArray) {
+data class MindustrySession(val key: Key, val server: String, val account: Int, val expiration: Instant) {
+    val expired: Boolean
+        get() = Instant.now().isAfter(expiration)
 
-    override fun equals(other: Any?) =
-        other == this ||
-            (other is Password && hash.contentEquals(other.hash) && salt.contentEquals(other.salt))
-
-    override fun hashCode() = Objects.hash(hash.contentHashCode(), salt.contentHashCode())
-
-    @OptIn(ExperimentalStdlibApi::class)
-    override fun toString() =
-        "Password(hash=${hash.toHexString(HexFormat.UpperCase)}, salt=${salt.toHexString(HexFormat.UpperCase)})"
+    data class Key(val uuid: String, val usid: String, val address: InetAddress)
 }

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.security
+package com.xpdustry.imperium.common.security.requirement
 
 sealed interface PasswordRequirement {
     fun check(password: CharArray): Boolean
@@ -33,23 +33,14 @@ sealed interface PasswordRequirement {
     }
 
     data object Symbol : PasswordRequirement {
-        override fun check(password: CharArray) = password.any { it.isLetterOrDigit().not() }
+        override fun check(password: CharArray) = password.any { !it.isLetterOrDigit() }
     }
 
     data class Length(val min: Int, val max: Int) : PasswordRequirement {
         override fun check(password: CharArray) = password.size in min..max
     }
-}
 
-fun List<PasswordRequirement>.findMissingPasswordRequirements(password: CharArray): List<PasswordRequirement> {
-    return filter { !it.check(password) }
+    companion object {
+        val DEFAULT = listOf(Length(8, 64), Number, Symbol, LowercaseLetter, UppercaseLetter)
+    }
 }
-
-val DEFAULT_PASSWORD_REQUIREMENTS =
-    listOf(
-        PasswordRequirement.Length(8, 64),
-        PasswordRequirement.Number,
-        PasswordRequirement.Symbol,
-        PasswordRequirement.LowercaseLetter,
-        PasswordRequirement.UppercaseLetter,
-    )
