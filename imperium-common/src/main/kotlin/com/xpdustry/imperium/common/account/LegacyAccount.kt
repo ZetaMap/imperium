@@ -17,6 +17,7 @@
  */
 package com.xpdustry.imperium.common.account
 
+import com.xpdustry.imperium.common.security.PasswordHash
 import kotlin.time.Duration
 
 data class LegacyAccount(

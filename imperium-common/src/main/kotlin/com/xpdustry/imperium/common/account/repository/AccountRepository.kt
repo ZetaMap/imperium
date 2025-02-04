@@ -15,11 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.account.repository
 
+import com.xpdustry.imperium.common.account.Account
+import com.xpdustry.imperium.common.account.Achievement
+import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.collection.enumSetOf
 import com.xpdustry.imperium.common.database.transaction
+import com.xpdustry.imperium.common.security.PasswordHash
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
@@ -243,6 +247,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun updateDiscord(id: Int, discord: Long): Unit =
         source.transaction { connection ->
+            ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
                     """
@@ -262,6 +267,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun incrementGames(id: Int): Unit =
         source.transaction { connection ->
+            ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
                     """
@@ -280,6 +286,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun incrementPlaytime(id: Int, duration: Duration): Unit =
         source.transaction { connection ->
+            ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
                     """
@@ -299,7 +306,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Unit =
         source.transaction { connection ->
-            if (!existsById(connection, id)) return@transaction
+            ensureAccountExists(connection, id)
             if (completed) {
                 connection
                     .prepareStatement(
@@ -334,7 +341,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun updateRank(id: Int, rank: Rank): Unit =
         source.transaction { connection ->
-            if (!existsById(connection, id)) return@transaction
+            ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
                     """
@@ -354,7 +361,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun updatePassword(id: Int, password: PasswordHash): Unit =
         source.transaction { connection ->
-            if (!existsById(connection, id)) return@transaction
+            ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
                     """
@@ -375,7 +382,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
 
     override suspend fun updateMetadata(id: Int, key: String, value: String): Unit =
         source.transaction { connection ->
-            if (!existsById(connection, id)) return@transaction
+            ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
                     """
@@ -423,4 +430,8 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                     }
                 }
         }
+
+    private fun ensureAccountExists(connection: Connection, id: Int) {
+        if (!existsById(connection, id)) error("The account '$id' does not exists.")
+    }
 }

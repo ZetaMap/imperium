@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.security
 
 import java.security.SecureRandom
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator

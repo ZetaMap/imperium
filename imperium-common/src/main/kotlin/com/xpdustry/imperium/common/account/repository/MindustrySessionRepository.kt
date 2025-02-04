@@ -15,8 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.account.repository
 
+import com.xpdustry.imperium.common.account.MindustrySession
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.database.transaction
 import java.net.InetAddress
@@ -92,13 +93,8 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
                     statement.setBytes(4, session.key.address.address)
                     statement.setString(5, session.server)
                     statement.setTimestamp(6, Timestamp.from(session.expiration))
-                    if (statement.executeUpdate() == 0) {
-                        return@transaction null
-                    }
-                    statement.generatedKeys.use { keys ->
-                        if (!keys.next()) return@transaction null
-                        keys.getInt(1)
-                    }
+                    if (statement.executeUpdate() == 0) return@transaction null
+                    statement.generatedKeys.use { keys -> if (!keys.next()) null else keys.getInt(1) }
                 }
         }
     }
@@ -109,7 +105,8 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
             connection
                 .prepareStatement(
                     """
-                    SELECT `server`, `account_id`, `expiration` FROM `account_session_mindustry`
+                    SELECT `server`, `account_id`, `expiration`
+                    FROM `account_session_mindustry`
                     WHERE `uuid` = ? AND `usid` = ? AND `address` = ?
                     LIMIT 1;
                     """
@@ -156,7 +153,8 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
             connection
                 .prepareStatement(
                     """
-                    SELECT `uuid`, `usid`, `address`, `server`, `account_id`, `expiration` FROM `account_session_mindustry`
+                    SELECT `uuid`, `usid`, `address`, `server`, `account_id`, `expiration`
+                    FROM `account_session_mindustry`
                     WHERE `account_id` = ?
                     """
                         .trimIndent()
@@ -164,7 +162,7 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
                 .use { statement ->
                     statement.setInt(1, id)
                     statement.executeQuery().use { result ->
-                        val sessions = ArrayList<MindustrySession>()
+                        val sessions = arrayListOf<MindustrySession>()
                         while (result.next()) {
                             sessions +=
                                 MindustrySession(

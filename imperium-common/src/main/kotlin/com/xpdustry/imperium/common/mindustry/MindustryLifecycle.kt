@@ -15,6 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.hash
+package com.xpdustry.imperium.common.mindustry
 
-sealed interface HashParams
+import com.xpdustry.imperium.common.account.MindustrySession
+
+interface MindustryLifecycle {
+
+    fun addJoinListener(listener: (MindustrySession.Key) -> Unit)
+
+    fun addQuitListener(listener: (MindustrySession.Key) -> Unit)
+}

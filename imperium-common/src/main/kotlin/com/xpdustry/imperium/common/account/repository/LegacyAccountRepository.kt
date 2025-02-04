@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.account.repository
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.database.transaction
@@ -87,10 +87,16 @@ class SQLLegacyAccountRepository(private val source: DataSource) :
     override suspend fun existsByUsername(username: String) =
         source.transaction { connection ->
             val hashed = MessageDigest.getInstance("SHA-256").digest(username.toByteArray())
-            connection.prepareStatement("SELECT 1 FROM `legacy_account` WHERE `username_hash` = ? LIMIT 1").use {
-                statement ->
-                statement.setBytes(1, hashed)
-                statement.executeQuery().next()
-            }
+            connection
+                .prepareStatement(
+                    """
+                    SELECT 1 FROM `legacy_account` WHERE `username_hash` = ? LIMIT 1
+                    """
+                        .trimIndent()
+                )
+                .use { statement ->
+                    statement.setBytes(1, hashed)
+                    statement.executeQuery().next()
+                }
         }
 }
