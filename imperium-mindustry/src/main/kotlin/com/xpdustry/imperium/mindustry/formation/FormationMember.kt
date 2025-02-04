@@ -15,17 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.mindustry.game.formation
+package com.xpdustry.imperium.mindustry.formation
 
-data class FormationContext(
-    val members: MutableList<FormationMember>,
-    val assignments: MutableMap<Int, Int>,
-    val slots: Int,
-    var pattern: FormationPattern,
-    val strategy: SlotAssignmentStrategy,
-    var deleted: Boolean = false,
-) {
-    fun remove(member: FormationMember) {
-        strategy.remove(this, member)
-    }
+import arc.math.geom.Vec2
+import mindustry.gen.Unit as MindustryUnit
+
+interface FormationMember {
+    val targetVector: Vec2
+    val id: Int
+    // Goofy name due to FormationAI override
+    val backingUnit: MindustryUnit
+
+    fun isValid(): Boolean
 }

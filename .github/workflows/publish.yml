@@ -27,6 +27,8 @@ jobs:
 
       - name: Build Artifacts
         run: gradle build
+        env:
+          ORG_GRADLE_PROJECT_generateChangelog: "${{ github.repository == 'xpdustry/imperium' }}"
 
       - name: Upload Test Summary
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -70,6 +72,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: "refs/tags/v${{ needs.github.outputs.version }}"
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v4
@@ -88,3 +92,4 @@ jobs:
           ORG_GRADLE_PROJECT_xpdustryPassword: "${{ secrets.XPDUSTRY_MAVEN_PASSWORD }}"
           ORG_GRADLE_PROJECT_signingKey: "${{ secrets.XPDUSTRY_MAVEN_SIGNING_KEY }}"
           ORG_GRADLE_PROJECT_signingPassword: "${{ secrets.XPDUSTRY_MAVEN_SIGNING_PASSWORD }}"
+          ORG_GRADLE_PROJECT_generateChangelog: "${{ github.repository == 'xpdustry/imperium' }}"

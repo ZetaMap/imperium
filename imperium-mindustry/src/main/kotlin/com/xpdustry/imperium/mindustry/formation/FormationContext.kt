@@ -15,13 +15,30 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.mindustry.game.formation
+package com.xpdustry.imperium.mindustry.formation
 
-import arc.math.geom.Vec2
+import mindustry.gen.Unit as MindustryUnit
 
-interface FormationMember {
-    val targetVector: Vec2
-    val id: Int
+data class FormationContext(
+    var leader: MindustryUnit,
+    val members: MutableList<FormationMember> = arrayListOf(),
+    val assignments: MutableMap<Int, Int> = hashMapOf(),
+    val slots: Int,
+    var pattern: FormationPattern = CircleFormationPattern,
+    val strategy: SlotAssignmentStrategy = DistanceAssignmentStrategy,
+    var deleted: Boolean = false,
+) {
+    val open: Int
+        get() = slots - members.size
 
-    fun isValid(): Boolean
+    fun add(unit: MindustryUnit) {
+        val ai = FormationAI(this)
+        unit.controller(ai)
+        members.add(ai)
+    }
+
+    fun remove(member: FormationMember) {
+        assignments.remove(member.id)
+        members.remove(member)
+    }
 }

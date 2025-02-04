@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.mindustry.game.formation
+package com.xpdustry.imperium.mindustry.formation
 
 import arc.math.Mathf
 import arc.math.geom.Vec2
@@ -24,8 +24,6 @@ import arc.struct.IntSeq
 interface SlotAssignmentStrategy {
 
     fun update(context: FormationContext)
-
-    fun remove(context: FormationContext, member: FormationMember)
 }
 
 object DistanceAssignmentStrategy : SlotAssignmentStrategy {
@@ -50,10 +48,5 @@ object DistanceAssignmentStrategy : SlotAssignmentStrategy {
             context.assignments[member.id] = slots[mindex]
             slots.removeIndex(mindex)
         }
-    }
-
-    override fun remove(context: FormationContext, member: FormationMember) {
-        context.assignments.remove(member.id)
-        context.members.remove(member)
     }
 }

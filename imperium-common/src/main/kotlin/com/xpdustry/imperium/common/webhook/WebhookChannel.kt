@@ -15,14 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.mindustry.tower
+package com.xpdustry.imperium.common.webhook
 
-import mindustry.ai.types.GroundAI
-import mindustry.entities.Units
-import mindustry.gen.Teamc
-import mindustry.world.blocks.storage.CoreBlock
-
-class GroundTowerAI : GroundAI() {
-    override fun target(x: Float, y: Float, range: Float, air: Boolean, ground: Boolean): Teamc? =
-        Units.closestTarget(unit.team, x, y, range, { false }, { it.block is CoreBlock && ground })
+enum class WebhookChannel {
+    CONSOLE,
+    NOHORNY,
 }

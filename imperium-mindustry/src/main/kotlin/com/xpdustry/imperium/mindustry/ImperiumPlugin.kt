@@ -23,8 +23,6 @@ import arc.Core
 import com.xpdustry.distributor.api.Distributor
 import com.xpdustry.distributor.api.annotation.PluginAnnotationProcessor
 import com.xpdustry.distributor.api.component.render.ComponentRendererProvider
-import com.xpdustry.distributor.api.permission.rank.RankPermissionSource
-import com.xpdustry.distributor.api.permission.rank.RankProvider
 import com.xpdustry.distributor.api.plugin.AbstractMindustryPlugin
 import com.xpdustry.distributor.api.scheduler.MindustryTimeUnit
 import com.xpdustry.distributor.api.translation.BundleTranslationSource
@@ -38,6 +36,7 @@ import com.xpdustry.imperium.common.content.MindustryGamemode
 import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.registerApplication
 import com.xpdustry.imperium.common.registerCommonModule
+import com.xpdustry.imperium.common.webhook.WebhookChannel
 import com.xpdustry.imperium.common.webhook.WebhookMessage
 import com.xpdustry.imperium.common.webhook.WebhookMessageSender
 import com.xpdustry.imperium.mindustry.account.AccountCommand
@@ -53,25 +52,24 @@ import com.xpdustry.imperium.mindustry.command.HelpCommand
 import com.xpdustry.imperium.mindustry.component.ImperiumComponentRendererProvider
 import com.xpdustry.imperium.mindustry.config.ConventionListener
 import com.xpdustry.imperium.mindustry.control.ControlListener
+import com.xpdustry.imperium.mindustry.formation.FormationListener
 import com.xpdustry.imperium.mindustry.game.AlertListener
 import com.xpdustry.imperium.mindustry.game.AntiGriefListener
 import com.xpdustry.imperium.mindustry.game.ChangelogCommand
+import com.xpdustry.imperium.mindustry.game.DayNighCycleListener
 import com.xpdustry.imperium.mindustry.game.GameListener
 import com.xpdustry.imperium.mindustry.game.ImperiumLogicListener
 import com.xpdustry.imperium.mindustry.game.LogicListener
-import com.xpdustry.imperium.mindustry.game.MenuToPlayEvent
 import com.xpdustry.imperium.mindustry.game.PauseListener
 import com.xpdustry.imperium.mindustry.game.RatingListener
 import com.xpdustry.imperium.mindustry.game.TeamCommand
 import com.xpdustry.imperium.mindustry.game.TipListener
-import com.xpdustry.imperium.mindustry.game.formation.FormationListener
 import com.xpdustry.imperium.mindustry.history.HistoryCommand
 import com.xpdustry.imperium.mindustry.metrics.MetricsListener
 import com.xpdustry.imperium.mindustry.misc.ImperiumMetadataChunkReader
 import com.xpdustry.imperium.mindustry.misc.getMindustryVersion
 import com.xpdustry.imperium.mindustry.misc.onEvent
-import com.xpdustry.imperium.mindustry.permission.ImperiumRankPermissionSource
-import com.xpdustry.imperium.mindustry.permission.ImperiumRankProvider
+import com.xpdustry.imperium.mindustry.permission.ImperiumPermissionListener
 import com.xpdustry.imperium.mindustry.security.AdminRequestListener
 import com.xpdustry.imperium.mindustry.security.AntiEvadeListener
 import com.xpdustry.imperium.mindustry.security.GatekeeperListener
@@ -81,7 +79,6 @@ import com.xpdustry.imperium.mindustry.security.PunishmentListener
 import com.xpdustry.imperium.mindustry.security.ReportCommand
 import com.xpdustry.imperium.mindustry.security.VoteKickCommand
 import com.xpdustry.imperium.mindustry.telemetry.DumpCommand
-import com.xpdustry.imperium.mindustry.tower.TowerListener
 import com.xpdustry.imperium.mindustry.world.CoreBlockListener
 import com.xpdustry.imperium.mindustry.world.ExcavateCommand
 import com.xpdustry.imperium.mindustry.world.HubListener
@@ -126,13 +123,6 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
             registerMindustryModule(this@ImperiumPlugin)
             createAll()
         }
-
-        registerService(
-            RankProvider::class,
-            ImperiumRankProvider(application.instances.get(), application.instances.get()).also(application::register),
-        )
-
-        registerService(RankPermissionSource::class, ImperiumRankPermissionSource(application.instances.get()))
 
         registerService(
             TranslationSource::class,
@@ -199,6 +189,8 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
                 FlexListener::class,
                 MetricsListener::class,
                 ChangelogCommand::class,
+                DayNighCycleListener::class,
+                ImperiumPermissionListener::class,
             )
             .forEach(application::register)
 
@@ -207,9 +199,6 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
             application.register(HubListener::class)
         } else {
             Core.settings.remove("totalPlayers")
-        }
-        if (gamemode == MindustryGamemode.TOWER_DEFENSE) {
-            application.register(TowerListener::class)
         }
 
         application.init()
@@ -225,7 +214,9 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
         application.listeners.forEach(processor::process)
 
         runBlocking {
-            application.instances.get<WebhookMessageSender>().send(WebhookMessage(content = "The server has started."))
+            application.instances
+                .get<WebhookMessageSender>()
+                .send(WebhookChannel.CONSOLE, WebhookMessage(content = "The server has started."))
         }
 
         logger.info("Imperium plugin Loaded!")
@@ -276,15 +267,10 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
         }
 
         // Additional fix because if you stay in-game after game-over, it re-pauses until someone joins...
-        onEvent<MenuToPlayEvent> { _ ->
-            Distributor.get().pluginScheduler.schedule(this).repeat(1, MindustryTimeUnit.SECONDS).execute { c ->
-                if (Vars.state.isMenu || Groups.player.size() > 0) {
-                    c.cancel()
-                } else if (autopause) {
-                    autopause = false
-                    Vars.state.set(GameState.State.playing)
-                    c.cancel()
-                }
+        Distributor.get().pluginScheduler.schedule(this).repeat(2, MindustryTimeUnit.SECONDS).execute { _ ->
+            if (autopause && Groups.player.size() > 0) {
+                autopause = false
+                Vars.state.set(GameState.State.playing)
             }
         }
     }
@@ -298,7 +284,7 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
             runBlocking {
                 instances
                     .get<WebhookMessageSender>()
-                    .send(WebhookMessage(content = "The server is exiting with $status code."))
+                    .send(WebhookChannel.CONSOLE, WebhookMessage(content = "The server is exiting with $status code."))
             }
             super.exit(status)
             when (status) {
