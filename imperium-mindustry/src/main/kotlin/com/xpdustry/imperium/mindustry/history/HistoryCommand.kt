@@ -28,7 +28,7 @@ import com.xpdustry.imperium.common.command.ImperiumCommand
 import com.xpdustry.imperium.common.config.ImperiumConfig
 import com.xpdustry.imperium.common.inject.InstanceManager
 import com.xpdustry.imperium.common.inject.get
-import com.xpdustry.imperium.common.user.User
+import com.xpdustry.imperium.common.user.Setting
 import com.xpdustry.imperium.common.user.UserManager
 import com.xpdustry.imperium.mindustry.command.annotation.ClientSide
 import com.xpdustry.imperium.mindustry.command.annotation.ServerSide
@@ -83,7 +83,7 @@ class HistoryCommand(instances: InstanceManager) : ImperiumApplication.Listener 
     @EventHandler
     internal fun onPlayerTapEvent(event: EventType.TapEvent) =
         ImperiumScope.MAIN.launch {
-            if (users.getSetting(event.player.uuid(), User.Setting.DOUBLE_TAP_TILE_LOG)) {
+            if (users.getSetting(event.player.uuid(), Setting.DOUBLE_TAP_TILE_LOG)) {
                 val last = taps[event.player]
                 if (
                     last != null &&

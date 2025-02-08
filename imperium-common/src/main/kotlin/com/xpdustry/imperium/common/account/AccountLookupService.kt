@@ -15,17 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account.service
+package com.xpdustry.imperium.common.account
 
-import com.xpdustry.imperium.common.account.Account
-import com.xpdustry.imperium.common.account.MindustrySession
-import com.xpdustry.imperium.common.account.repository.AccountRepository
-import com.xpdustry.imperium.common.account.repository.MindustrySessionRepository
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.message.Messenger
 import com.xpdustry.imperium.common.message.consumer
-import com.xpdustry.imperium.common.mindustry.MindustryLifecycle
-import com.xpdustry.imperium.common.misc.buildCache
+import com.xpdustry.imperium.common.mindustry.MindustryRuntime
+import java.util.concurrent.ConcurrentHashMap
 
 interface AccountLookupService {
 
@@ -33,43 +29,46 @@ interface AccountLookupService {
 
     suspend fun selectById(account: Int): Account?
 
-    suspend fun selectByDiscord(discord: Int): Account?
+    suspend fun selectByDiscord(discord: Long): Account?
 
-    fun selectBySession(key: MindustrySession.Key): Account?
+    fun selectBySessionCached(key: MindustrySession.Key): Account?
 }
 
 class SimpleAccountLookupService(
     private val accounts: AccountRepository,
-    private val sessions: MindustrySessionRepository,
+    private val sessions: AccountSessionRepository,
     private val messages: Messenger,
-    private val mindustry: MindustryLifecycle,
+    private val mindustry: MindustryRuntime,
 ) : AccountLookupService, ImperiumApplication.Listener {
-    private val cache = buildCache<MindustrySession.Key, Account> {}
+    private val cache = ConcurrentHashMap<MindustrySession.Key, Account>()
 
     override fun onImperiumInit() {
         messages.consumer<AccountProfileUpdateMessage> { event ->
             val account = selectById(event.account)!!
             for (session in sessions.selectByAccount(account.id)) {
-                if (cache.getIfPresent(session.key) != null) {
-                    cache.put(session.key, account)
-                }
+                cache.computeIfPresent(session.key) { _, _ -> account }
             }
         }
+
+        mindustry.addPlayerListener(
+            { cache[it] = accounts.selectById(sessions.selectByKey(it)?.account ?: return@addPlayerListener)!! },
+            { cache.remove(it) },
+        )
     }
 
     override suspend fun selectByUsername(account: String): Account? {
-        TODO("Not yet implemented")
+        return accounts.selectByUsername(account)
     }
 
     override suspend fun selectById(account: Int): Account? {
-        TODO("Not yet implemented")
+        return accounts.selectById(account)
     }
 
-    override suspend fun selectByDiscord(discord: Int): Account? {
-        TODO("Not yet implemented")
+    override suspend fun selectByDiscord(discord: Long): Account? {
+        return accounts.selectByDiscord(discord)
     }
 
-    override fun selectBySession(key: MindustrySession.Key): Account? {
-        TODO("Not yet implemented")
+    override fun selectBySessionCached(key: MindustrySession.Key): Account? {
+        return cache[key]
     }
 }

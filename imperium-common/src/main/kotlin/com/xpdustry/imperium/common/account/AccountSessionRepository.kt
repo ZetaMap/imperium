@@ -15,9 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account.repository
+package com.xpdustry.imperium.common.account
 
-import com.xpdustry.imperium.common.account.MindustrySession
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.database.transaction
 import java.net.InetAddress
@@ -28,7 +27,7 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.runBlocking
 
-interface MindustrySessionRepository {
+interface AccountSessionRepository {
 
     suspend fun upsertSession(session: MindustrySession): Int?
 
@@ -42,7 +41,7 @@ interface MindustrySessionRepository {
 }
 
 class SQLSessionRepository(private val source: DataSource, private val accounts: AccountRepository) :
-    MindustrySessionRepository, ImperiumApplication.Listener {
+    AccountSessionRepository, ImperiumApplication.Listener {
 
     override fun onImperiumInit() {
         runBlocking {

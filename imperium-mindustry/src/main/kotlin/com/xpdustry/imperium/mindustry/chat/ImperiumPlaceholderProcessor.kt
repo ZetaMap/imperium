@@ -21,94 +21,64 @@ import arc.graphics.Color
 import com.xpdustry.distributor.api.audience.PlayerAudience
 import com.xpdustry.distributor.api.component.render.ComponentStringBuilder
 import com.xpdustry.distributor.api.key.StandardKeys
-import com.xpdustry.distributor.api.plugin.MindustryPlugin
 import com.xpdustry.flex.placeholder.PlaceholderContext
 import com.xpdustry.flex.processor.Processor
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
-import com.xpdustry.imperium.common.async.ImperiumScope
-import com.xpdustry.imperium.common.user.User
-import com.xpdustry.imperium.common.user.UserManager
+import com.xpdustry.imperium.common.user.Setting
+import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.bridge.DiscordAudience
-import com.xpdustry.imperium.mindustry.misc.Entities
-import com.xpdustry.imperium.mindustry.misc.PlayerMap
-import com.xpdustry.imperium.mindustry.misc.runMindustryThread
 import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.misc.toHexString
 import java.text.DecimalFormat
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import mindustry.graphics.Pal
 
-class ImperiumPlaceholderProcessor(
-    plugin: MindustryPlugin,
-    private val accounts: AccountManager,
-    private val users: UserManager,
-) : Processor<PlaceholderContext, String?> {
-    private val ranks = PlayerMap<Rank>(plugin)
-    private val hours = PlayerMap<Int>(plugin)
-    private val hidden = PlayerMap<Boolean>(plugin)
-    private val rainbow = PlayerMap<Boolean>(plugin)
+class ImperiumPlaceholderProcessor(private val lookup: AccountLookupService, private val settings: UserSettingService) :
+    Processor<PlaceholderContext, String?> {
 
-    init {
-        ImperiumScope.MAIN.launch {
-            while (isActive) {
-                // TODO That block of code makes me cry, polling is cringe, reactive is king
-                delay(2.seconds)
-                Entities.getPlayersAsync().forEach { player ->
-                    val account = accounts.selectBySession(player.sessionKey)
-                    val undercover = users.getSetting(player.uuid(), User.Setting.UNDERCOVER)
-                    val rainbow =
-                        users.getSetting(player.uuid(), User.Setting.RAINBOW_NAME) &&
-                            account != null &&
-                            accounts.selectAchievement(account.id, Achievement.SUPPORTER)
-                    runMindustryThread {
-                        hidden[player] = undercover
-                        this@ImperiumPlaceholderProcessor.rainbow[player] = rainbow
-                        if (account == null) {
-                            hours.remove(player)
-                            ranks.remove(player)
-                        } else {
-                            hours[player] = account.playtime.inWholeHours.toInt()
-                            ranks[player] = account.rank
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    override fun process(context: PlaceholderContext): String? =
+    override fun process(context: PlaceholderContext) =
         when (context.query.lowercase()) {
-            "hours" ->
-                when (val audience = context.subject) {
-                    is DiscordAudience -> audience.hours?.let(CHAOTIC_HOUR_FORMAT::format) ?: ""
-                    is PlayerAudience -> {
-                        if (hidden[audience.player] == true) ""
-                        else hours[audience.player]?.let(CHAOTIC_HOUR_FORMAT::format) ?: ""
+            "hours" -> {
+                val hours =
+                    when (val subject = context.subject) {
+                        is DiscordAudience -> subject.hours
+                        is PlayerAudience ->
+                            lookup
+                                .selectBySessionCached(subject.player.sessionKey)
+                                ?.playtime
+                                ?.inWholeHours
+                                ?.takeUnless { settings.selectSetting(subject.player.uuid(), Setting.UNDERCOVER) }
+                        else -> null
                     }
-                    else -> ""
-                }
+                hours?.let(CHAOTIC_HOUR_FORMAT::format) ?: ""
+            }
             "is_discord" ->
                 when (context.subject) {
                     is DiscordAudience -> "discord"
                     else -> ""
                 }
-            "rank_color" ->
-                when (val audience = context.subject) {
-                    is DiscordAudience -> audience.rank.toColor().toHexString()
-                    is PlayerAudience -> {
-                        if (hidden[audience.player] == true) Rank.EVERYONE.toColor().toHexString()
-                        else (ranks[audience.player] ?: Rank.EVERYONE).toColor().toHexString()
+            "rank_color" -> {
+                val rank =
+                    when (val subject = context.subject) {
+                        is DiscordAudience -> subject.rank
+                        is PlayerAudience ->
+                            lookup.selectBySessionCached(subject.player.sessionKey)?.rank?.takeUnless {
+                                settings.selectSetting(subject.player.uuid(), Setting.UNDERCOVER)
+                            } ?: Rank.EVERYONE
+                        else -> Rank.EVERYONE
                     }
-                    else -> Rank.EVERYONE.toColor().toHexString()
-                }
+                rank.toColor().toHexString()
+            }
             "name_colored" -> {
                 val audience = context.subject
-                if (audience is PlayerAudience && rainbow[audience.player] == true && hidden[audience.player] != true) {
+                if (
+                    audience is PlayerAudience &&
+                        Achievement.SUPPORTER in
+                            lookup.selectBySessionCached(audience.player.sessionKey)?.achievements.orEmpty() &&
+                        settings.selectSetting(audience.player.uuid(), Setting.RAINBOW_NAME) &&
+                        !settings.selectSetting(audience.player.uuid(), Setting.UNDERCOVER)
+                ) {
                     context.subject.metadata[StandardKeys.DECORATED_NAME]?.let {
                         buildString {
                             val plain = ComponentStringBuilder.plain(context.subject.metadata).append(it).toString()

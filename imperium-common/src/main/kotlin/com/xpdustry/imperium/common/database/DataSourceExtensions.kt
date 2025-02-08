@@ -22,7 +22,7 @@ import javax.sql.DataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-suspend fun <T> DataSource.transaction(block: (Connection) -> T): T =
+suspend fun <T> DataSource.transaction(block: suspend (Connection) -> T): T =
     withContext(Dispatchers.IO) {
         val connection = this@transaction.connection
         connection.autoCommit = false

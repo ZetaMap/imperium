@@ -19,9 +19,14 @@ package com.xpdustry.imperium.common.mindustry
 
 import com.xpdustry.imperium.common.account.MindustrySession
 
-interface MindustryLifecycle {
+interface MindustryRuntime {
 
     fun addJoinListener(listener: (MindustrySession.Key) -> Unit)
 
     fun addQuitListener(listener: (MindustrySession.Key) -> Unit)
+
+    fun addPlayerListener(
+        onJoin: suspend (MindustrySession.Key) -> Unit,
+        onQuit: suspend (MindustrySession.Key) -> Unit,
+    )
 }

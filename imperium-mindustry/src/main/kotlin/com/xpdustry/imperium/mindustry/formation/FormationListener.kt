@@ -21,7 +21,7 @@ import arc.math.Mathf
 import arc.util.Interval
 import com.xpdustry.distributor.api.annotation.TriggerHandler
 import com.xpdustry.distributor.api.command.CommandSender
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
@@ -31,7 +31,6 @@ import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.mindustry.command.annotation.ClientSide
 import com.xpdustry.imperium.mindustry.command.annotation.RequireAchievement
 import com.xpdustry.imperium.mindustry.misc.asAudience
-import com.xpdustry.imperium.mindustry.misc.runMindustryThread
 import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.translation.formation_failure_dead
 import com.xpdustry.imperium.mindustry.translation.formation_failure_no_valid_unit
@@ -54,8 +53,8 @@ import mindustry.gen.Unit as MindustryUnit
 
 class FormationListener(instances: InstanceManager) : ImperiumApplication.Listener {
 
+    private val lookup = instances.get<AccountLookupService>()
     private val interval = Interval()
-    private val accounts = instances.get<AccountManager>()
     private val formations = mutableMapOf<Int, FormationContext>()
 
     @TriggerHandler(Trigger.update)
@@ -139,60 +138,52 @@ class FormationListener(instances: InstanceManager) : ImperiumApplication.Listen
 
     @ImperiumCommand(["group|g"])
     @ClientSide
-    suspend fun onFormationCommand(sender: CommandSender) {
-        val valid = runMindustryThread {
-            if (sender.player.id() in formations) {
-                formations.remove(sender.player.id())!!.deleted = true
-                sender.reply(formation_toggle(enabled = false))
-                return@runMindustryThread false
-            }
-            if (sender.player.unit().dead() || sender.player.unit() == Nulls.unit) {
-                sender.error(formation_failure_dead())
-                return@runMindustryThread false
-            }
-            true
-        }
-
-        if (!valid) {
+    fun onFormationCommand(sender: CommandSender) {
+        if (sender.player.id() in formations) {
+            formations.remove(sender.player.id())!!.deleted = true
+            sender.reply(formation_toggle(enabled = false))
             return
         }
-        val account = accounts.selectBySession(sender.player.sessionKey)
+        if (sender.player.unit().dead() || sender.player.unit() == Nulls.unit) {
+            sender.error(formation_failure_dead())
+            return
+        }
+
+        val account = lookup.selectBySessionCached(sender.player.sessionKey)
         var slots = 4
         if (account != null) {
             slots =
                 when {
-                    accounts.selectAchievement(account.id, Achievement.HYPER) -> 18
-                    accounts.selectAchievement(account.id, Achievement.ACTIVE) -> 12
+                    Achievement.HYPER in account.achievements -> 18
+                    Achievement.ACTIVE in account.achievements -> 12
                     account.rank >= Rank.VERIFIED -> 8
                     else -> slots
                 }
-            val manual = accounts.selectMetadata(account.id, "formation_max_slots")?.toIntOrNull()
+            val manual = account.metadata["formation_max_slots"]?.toIntOrNull()
             if (manual != null) {
                 slots = max(slots, manual)
             }
         }
 
-        runMindustryThread {
-            val context = FormationContext(leader = sender.player.unit(), slots = slots)
-            val eligible = findEligibleFormationUnits(sender.player.unit()).take(context.slots)
-            if (eligible.isEmpty()) {
-                sender.error(formation_failure_no_valid_unit())
-                return@runMindustryThread
-            }
-            for ((unit, _) in eligible) {
-                context.add(unit)
-            }
-            context.strategy.update(context)
-            formations[sender.player.id()] = context
-            sender.reply(formation_toggle(enabled = true))
+        val context = FormationContext(leader = sender.player.unit(), slots = slots)
+        val eligible = findEligibleFormationUnits(sender.player.unit()).take(context.slots)
+        if (eligible.isEmpty()) {
+            sender.error(formation_failure_no_valid_unit())
+            return
         }
+        for ((unit, _) in eligible) {
+            context.add(unit)
+        }
+        context.strategy.update(context)
+        formations[sender.player.id()] = context
+        sender.reply(formation_toggle(enabled = true))
     }
 
     @ImperiumCommand(["group|g", "pattern|p"])
     @RequireAchievement(Achievement.ACTIVE)
     @ClientSide
-    suspend fun onFormationPatternCommand(sender: CommandSender, pattern: FormationPatternEntry? = null) {
-        val rank = accounts.selectBySession(sender.player.sessionKey)?.rank ?: error("That ain't supposed to happen.")
+    fun onFormationPatternCommand(sender: CommandSender, pattern: FormationPatternEntry? = null) {
+        val rank = lookup.selectBySessionCached(sender.player.sessionKey)!!.rank
         if (pattern == null) {
             sender.reply(formation_pattern_list(rank))
             return

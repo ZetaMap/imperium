@@ -17,9 +17,10 @@
  */
 package com.xpdustry.imperium.mindustry.account
 
-import com.xpdustry.distributor.api.Distributor
 import com.xpdustry.distributor.api.command.CommandSender
+import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.AccountResult
+import com.xpdustry.imperium.common.account.AccountSecurityService
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.command.ImperiumCommand
 import com.xpdustry.imperium.common.inject.InstanceManager
@@ -28,11 +29,10 @@ import com.xpdustry.imperium.common.message.Messenger
 import com.xpdustry.imperium.common.message.consumer
 import com.xpdustry.imperium.common.misc.buildCache
 import com.xpdustry.imperium.common.security.VerificationMessage
-import com.xpdustry.imperium.common.user.User
-import com.xpdustry.imperium.common.user.UserManager
+import com.xpdustry.imperium.common.user.Setting
+import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.command.annotation.ClientSide
 import com.xpdustry.imperium.mindustry.misc.Entities
-import com.xpdustry.imperium.mindustry.misc.runMindustryThread
 import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.misc.showInfoMessage
 import kotlin.random.Random
@@ -41,27 +41,24 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
 
 class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener {
-    private val accounts = instances.get<AccountManager>()
-    private val users = instances.get<UserManager>()
+    private val lookup = instances.get<AccountLookupService>()
+    private val security = instances.get<AccountSecurityService>()
+    private val settings = instances.get<UserSettingService>()
     private val messenger = instances.get<Messenger>()
-    private val login = LoginWindow(instances.get(), accounts)
-    private val register = RegisterWindow(instances.get(), accounts)
-    private val changePassword = ChangePasswordWindow(instances.get(), accounts)
+    private val login = LoginWindow(instances.get(), security)
+    private val register = RegisterWindow(instances.get(), security)
+    private val changePassword = ChangePasswordWindow(instances.get(), security, lookup)
     private val verifications = buildCache<Int, Int> { expireAfterWrite(10.minutes.toJavaDuration()) }
 
     @ImperiumCommand(["login"])
     @ClientSide
-    suspend fun onLoginCommand(sender: CommandSender) {
-        val account = accounts.selectBySession(sender.player.sessionKey)
-        val remember = users.getSetting(sender.player.uuid(), User.Setting.REMEMBER_LOGIN)
-        runMindustryThread {
-            if (account == null) {
-                val window = login.create(sender.player)
-                window.state[REMEMBER_LOGIN_WARNING] = !remember
-                window.show()
-            } else {
-                handleAccountResult(AccountResult.AlreadyLogged, sender.player)
-            }
+    fun onLoginCommand(sender: CommandSender) {
+        if (lookup.selectBySessionCached(sender.player.sessionKey) == null) {
+            val window = login.create(sender.player)
+            window.state[REMEMBER_LOGIN_WARNING] = !settings.selectSetting(sender.player.uuid(), Setting.REMEMBER_LOGIN)
+            window.show()
+        } else {
+            handleAccountResult(AccountResult.AlreadyLogged, sender.player)
         }
     }
 
@@ -74,13 +71,11 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
     @ImperiumCommand(["logout"])
     @ClientSide
     suspend fun onLogoutCommand(sender: CommandSender) {
-        if (accounts.selectBySession(sender.player.sessionKey) == null) {
+        if (lookup.selectBySessionCached(sender.player.sessionKey) == null) {
             sender.player.sendMessage("You are not logged in!")
         } else {
-            accounts.logout(sender.player.sessionKey)
-            sender.player.admin = false
+            security.logout(sender.player.sessionKey)
             sender.player.sendMessage("You have been logged out!")
-            runMindustryThread { Distributor.get().eventBus.post(PlayerLogoutEvent(sender.player)) }
         }
     }
 
@@ -93,7 +88,7 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
     @ImperiumCommand(["verify"])
     @ClientSide
     suspend fun onVerifyCommand(sender: CommandSender) {
-        val account = accounts.selectBySession(sender.player.sessionKey)
+        val account = lookup.selectBySessionCached(sender.player.sessionKey)
         if (account == null) {
             sender.error("You are not logged in!")
             return

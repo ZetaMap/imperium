@@ -21,16 +21,18 @@ import com.xpdustry.distributor.api.annotation.EventHandler
 import com.xpdustry.distributor.api.annotation.TaskHandler
 import com.xpdustry.distributor.api.scheduler.MindustryTimeUnit
 import com.xpdustry.imperium.common.account.Account
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.AccountProfileService
+import com.xpdustry.imperium.common.account.AccountProfileUpdateMessage
+import com.xpdustry.imperium.common.account.AccountSecurityService
 import com.xpdustry.imperium.common.account.Achievement
-import com.xpdustry.imperium.common.account.AchievementCompletedMessage
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.async.ImperiumScope
 import com.xpdustry.imperium.common.inject.InstanceManager
 import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.message.Messenger
 import com.xpdustry.imperium.common.message.consumer
-import com.xpdustry.imperium.common.user.User
+import com.xpdustry.imperium.common.user.Setting
 import com.xpdustry.imperium.common.user.UserManager
 import com.xpdustry.imperium.mindustry.misc.Entities
 import com.xpdustry.imperium.mindustry.misc.identity
@@ -48,15 +50,18 @@ import mindustry.gen.Iconc
 import mindustry.gen.Player
 
 class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener {
-    private val accounts = instances.get<AccountManager>()
+    private val lookup = instances.get<AccountLookupService>()
+    private val profile = instances.get<AccountProfileService>()
+    private val security = instances.get<AccountSecurityService>()
     private val users = instances.get<UserManager>()
     private val playtime = ConcurrentHashMap<Player, Long>()
     private val messenger = instances.get<Messenger>()
 
     override fun onImperiumInit() {
-        messenger.consumer<AchievementCompletedMessage> { message ->
+        messenger.consumer<AccountProfileUpdateMessage.Achievement> { message ->
+            if (!message.completed) return@consumer
             for (player in Entities.getPlayersAsync()) {
-                val account = accounts.selectBySession(player.sessionKey)
+                val account = lookup.selectBySessionCached(player.sessionKey)
                 if (account != null && account.id == message.account) {
                     Call.warningToast(
                         player.con,
@@ -70,15 +75,14 @@ class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener
     }
 
     @TaskHandler(delay = 1L, interval = 1L, unit = MindustryTimeUnit.MINUTES)
-    internal fun onPlaytimeAchievementCheck() =
-        ImperiumScope.MAIN.launch {
-            for (player in Entities.getPlayersAsync()) {
-                val account = accounts.selectBySession(player.sessionKey) ?: continue
-                val now = System.currentTimeMillis()
-                val playtime = (now - (playtime[player] ?: now)).milliseconds
-                checkPlaytimeAchievements(account, playtime)
-            }
+    internal fun onPlaytimeAchievementCheck() {
+        for (player in Entities.getPlayers()) {
+            val account = lookup.selectBySessionCached(player.sessionKey) ?: continue
+            val now = System.currentTimeMillis()
+            val playtime = (now - (playtime[player] ?: now)).milliseconds
+            ImperiumScope.MAIN.launch { checkPlaytimeAchievements(account, playtime) }
         }
+    }
 
     @EventHandler
     internal fun onPlayerJoin(event: EventType.PlayerJoin) {
@@ -90,8 +94,8 @@ class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener
     internal fun onGameOver(event: EventType.GameOverEvent) {
         Entities.getPlayers().forEach { player ->
             ImperiumScope.MAIN.launch {
-                val account = accounts.selectBySession(player.sessionKey) ?: return@launch
-                accounts.incrementGames(account.id)
+                val account = lookup.selectBySessionCached(player.sessionKey) ?: return@launch
+                profile.incrementGames(account.id)
             }
         }
     }
@@ -101,41 +105,40 @@ class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener
         val playerPlaytime = playtime.remove(event.player)
         ImperiumScope.MAIN.launch {
             val now = System.currentTimeMillis()
-            val account = accounts.selectBySession(event.player.sessionKey)
+            val account = lookup.selectBySessionCached(event.player.sessionKey)
             if (account != null) {
                 val playtime = (now - (playerPlaytime ?: now)).milliseconds
-                accounts.incrementPlaytime(account.id, playtime)
+                profile.incrementPlaytime(account.id, playtime)
                 checkPlaytimeAchievements(account, playtime)
             }
-            if (!users.getSetting(event.player.uuid(), User.Setting.REMEMBER_LOGIN)) {
-                accounts.logout(event.player.sessionKey)
+            if (!users.getSetting(event.player.uuid(), Setting.REMEMBER_LOGIN)) {
+                security.logout(event.player.sessionKey)
             }
         }
     }
 
     private suspend fun checkPlaytimeAchievements(account: Account, playtime: Duration) {
         if (playtime >= 8.hours) {
-            accounts.updateAchievement(account.id, Achievement.GAMER, true)
+            profile.updateAchievement(account.id, Achievement.GAMER, true)
         }
-        checkDailyLoginAchievement(account, playtime, Achievement.ACTIVE)
-        checkDailyLoginAchievement(account, playtime, Achievement.HYPER)
+        checkDailyLoginAchievement(account, playtime)
         val total = playtime + account.playtime
         if (total >= 1.days) {
-            accounts.updateAchievement(account.id, Achievement.DAY, true)
+            profile.updateAchievement(account.id, Achievement.DAY, true)
         }
         if (total >= 7.days) {
-            accounts.updateAchievement(account.id, Achievement.WEEK, true)
+            profile.updateAchievement(account.id, Achievement.WEEK, true)
         }
         if (total >= 30.days) {
-            accounts.updateAchievement(account.id, Achievement.MONTH, true)
+            profile.updateAchievement(account.id, Achievement.MONTH, true)
         }
     }
 
-    private suspend fun checkDailyLoginAchievement(account: Account, playtime: Duration, achievement: Achievement) {
-        if (playtime < 30.minutes || accounts.selectAchievement(account.id, achievement)) return
+    private suspend fun checkDailyLoginAchievement(account: Account, playtime: Duration) {
+        if (playtime < 30.minutes) return
         val now = System.currentTimeMillis()
-        var last = accounts.selectMetadata(account.id, PLAYTIME_ACHIEVEMENT_LAST_GRANT)?.toLongOrNull()
-        var increment = accounts.selectMetadata(account.id, PLAYTIME_ACHIEVEMENT_INCREMENT)?.toIntOrNull() ?: 0
+        var last = account.metadata[PLAYTIME_ACHIEVEMENT_LAST_GRANT]?.toLongOrNull()
+        var increment = account.metadata[PLAYTIME_ACHIEVEMENT_INCREMENT]?.toIntOrNull() ?: 0
 
         if (last == null) {
             last = now
@@ -153,19 +156,20 @@ class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener
             }
         }
 
-        val goal =
-            when (achievement) {
-                Achievement.ACTIVE -> 7
-                Achievement.HYPER -> 30
-                else -> error("Invalid achievement")
-            }
-
-        if (increment >= goal) {
-            accounts.updateAchievement(account.id, achievement, true)
-        } else {
-            accounts.updateMetadata(account.id, PLAYTIME_ACHIEVEMENT_LAST_GRANT, last.toString())
-            accounts.updateMetadata(account.id, PLAYTIME_ACHIEVEMENT_INCREMENT, increment.toString())
+        if (increment >= 7 && Achievement.ACTIVE !in account.achievements) {
+            profile.updateAchievement(account.id, Achievement.ACTIVE, true)
         }
+        if (increment >= 30 && Achievement.HYPER !in account.achievements) {
+            profile.updateAchievement(account.id, Achievement.HYPER, true)
+        }
+
+        profile.updateMetadata(
+            account.id,
+            mapOf(
+                PLAYTIME_ACHIEVEMENT_LAST_GRANT to last.toString(),
+                PLAYTIME_ACHIEVEMENT_INCREMENT to increment.toString(),
+            ),
+        )
     }
 
     companion object {

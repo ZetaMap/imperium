@@ -15,15 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.user
 
-import com.xpdustry.imperium.common.serialization.SerializableInetAddress
-import java.time.Instant
+import com.xpdustry.imperium.common.message.Message
+import com.xpdustry.imperium.common.misc.MindustryUUID
 import kotlinx.serialization.Serializable
 
-data class MindustrySession(val key: Key, val server: String, val account: Int, val expiration: Instant) {
-    val expired: Boolean
-        get() = Instant.now().isAfter(expiration)
+interface UserSettingService {
 
-    @Serializable data class Key(val uuid: String, val usid: String, val address: SerializableInetAddress)
+    fun selectSetting(uuid: MindustryUUID, setting: Setting): Boolean {
+        return selectSettings(uuid)[setting] == true
+    }
+
+    fun selectSettings(uuid: MindustryUUID): Map<Setting, Boolean>
+
+    suspend fun updateSetting(uuid: MindustryUUID, setting: Setting, value: Boolean)
+
+    suspend fun toggleSetting(uuid: MindustryUUID, setting: Setting)
 }
+
+@Serializable
+data class SettingChangedMessage(val player: MindustryUUID, val setting: Setting, val value: Boolean) : Message
+
+class SimpleUserSettingService() {}

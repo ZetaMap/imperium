@@ -15,10 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.mindustry.account
+package com.xpdustry.imperium.mindustry.component
 
-import mindustry.gen.Player
+import com.xpdustry.distributor.api.component.Component
+import com.xpdustry.distributor.api.component.TranslatableComponent
+import com.xpdustry.distributor.api.component.style.ComponentColor
+import com.xpdustry.imperium.mindustry.translation.SCARLET
 
-data class PlayerLoginEvent(val player: Player)
-
-data class PlayerLogoutEvent(val player: Player)
+fun status(status: Boolean): Component =
+    TranslatableComponent.translatable(
+        "imperium.status.${if (status) "enabled" else "disabled"}",
+        if (status) ComponentColor.GREEN else SCARLET,
+    )

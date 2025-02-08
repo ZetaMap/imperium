@@ -24,7 +24,7 @@ import com.xpdustry.distributor.api.audience.Audience
 import com.xpdustry.flex.FlexAPI
 import com.xpdustry.flex.message.FlexPlayerChatEvent
 import com.xpdustry.flex.message.MessageContext
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.async.ImperiumScope
@@ -48,7 +48,7 @@ import mindustry.game.EventType
 class BridgeChatMessageListener(instances: InstanceManager) : ImperiumApplication.Listener {
     private val config = instances.get<ImperiumConfig>()
     private val messenger = instances.get<Messenger>()
-    private val accounts = instances.get<AccountManager>()
+    private val lookup = instances.get<AccountLookupService>()
 
     override fun onImperiumInit() {
         messenger.consumer<BridgeChatMessage> {
@@ -71,7 +71,7 @@ class BridgeChatMessageListener(instances: InstanceManager) : ImperiumApplicatio
                 ROOT_LOGGER.info("&fi&lcDiscord ({}&fi&lc): &fr&lw${forServer.stripMindustryColors()}", it.senderName)
             }
 
-            val account = accounts.selectByDiscord(it.discord)
+            val account = lookup.selectByDiscord(it.discord)
             FlexAPI.get()
                 .messages
                 .broadcast(

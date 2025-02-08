@@ -15,15 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account
+package com.xpdustry.imperium.common.user
 
-import com.xpdustry.imperium.common.serialization.SerializableInetAddress
-import java.time.Instant
-import kotlinx.serialization.Serializable
+import com.xpdustry.imperium.common.account.Achievement
 
-data class MindustrySession(val key: Key, val server: String, val account: Int, val expiration: Instant) {
-    val expired: Boolean
-        get() = Instant.now().isAfter(expiration)
+enum class Setting(val default: Boolean, val achievement: Achievement? = null) {
+    SHOW_WELCOME_MESSAGE(true),
+    RESOURCE_HUD(true),
+    REMEMBER_LOGIN(true),
+    DOUBLE_TAP_TILE_LOG(true),
+    ANTI_BAN_EVADE(false),
+    AUTOMATIC_LANGUAGE_DETECTION(true),
+    UNDERCOVER(false),
+    RAINBOW_NAME(false, achievement = Achievement.SUPPORTER);
 
-    @Serializable data class Key(val uuid: String, val usid: String, val address: SerializableInetAddress)
+    companion object {
+        fun valueOfOrNull(name: String) =
+            try {
+                valueOf(name)
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+    }
 }

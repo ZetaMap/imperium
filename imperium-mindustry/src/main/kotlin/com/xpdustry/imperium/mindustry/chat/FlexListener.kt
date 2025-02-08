@@ -30,7 +30,7 @@ import com.xpdustry.flex.placeholder.template.TemplateFilter
 import com.xpdustry.flex.placeholder.template.TemplateManager
 import com.xpdustry.flex.placeholder.template.TemplateStep
 import com.xpdustry.flex.translator.Translator
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.async.ImperiumScope
 import com.xpdustry.imperium.common.config.ImperiumConfig
@@ -39,8 +39,8 @@ import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.misc.BLURPLE
 import com.xpdustry.imperium.common.misc.containsLink
 import com.xpdustry.imperium.common.misc.toHexString
-import com.xpdustry.imperium.common.user.User
-import com.xpdustry.imperium.common.user.UserManager
+import com.xpdustry.imperium.common.user.Setting
+import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.translation.SCARLET
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
@@ -51,11 +51,11 @@ import mindustry.gen.Iconc
 class FlexListener(instances: InstanceManager) : ImperiumApplication.Listener {
     private val config = instances.get<ImperiumConfig>()
     private val plugin = instances.get<MindustryPlugin>()
-    private val accounts = instances.get<AccountManager>()
-    private val users = instances.get<UserManager>()
+    private val lookup = instances.get<AccountLookupService>()
+    private val settings = instances.get<UserSettingService>()
 
     override fun onImperiumInit() {
-        FlexAPI.get().placeholders.register("imperium", ImperiumPlaceholderProcessor(plugin, accounts, users))
+        FlexAPI.get().placeholders.register("imperium", ImperiumPlaceholderProcessor(plugin, lookup, settings))
 
         FlexAPI.get()
             .templates
@@ -149,7 +149,7 @@ class FlexListener(instances: InstanceManager) : ImperiumApplication.Listener {
                             if (
                                 sourceLocale.language != targetLocale.language &&
                                     muuid != null &&
-                                    users.getSetting(muuid.uuid, User.Setting.AUTOMATIC_LANGUAGE_DETECTION)
+                                    users.getSetting(muuid.uuid, Setting.AUTOMATIC_LANGUAGE_DETECTION)
                             ) {
                                 sourceLocale = Translator.AUTO_DETECT
                             }

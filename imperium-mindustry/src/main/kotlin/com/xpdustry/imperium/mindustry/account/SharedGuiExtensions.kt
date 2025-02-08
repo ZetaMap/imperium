@@ -19,8 +19,8 @@ package com.xpdustry.imperium.mindustry.account
 
 import com.xpdustry.distributor.api.gui.Window
 import com.xpdustry.imperium.common.account.AccountResult
-import com.xpdustry.imperium.common.security.PasswordRequirement
-import com.xpdustry.imperium.common.security.UsernameRequirement
+import com.xpdustry.imperium.common.security.requirement.PasswordRequirement
+import com.xpdustry.imperium.common.security.requirement.UsernameRequirement
 import com.xpdustry.imperium.mindustry.misc.showInfoMessage
 import mindustry.gen.Player
 

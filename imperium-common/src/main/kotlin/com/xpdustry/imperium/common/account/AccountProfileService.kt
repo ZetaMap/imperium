@@ -15,11 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.account.service
+package com.xpdustry.imperium.common.account
 
-import com.xpdustry.imperium.common.account.Achievement
-import com.xpdustry.imperium.common.account.Rank
-import com.xpdustry.imperium.common.account.repository.AccountRepository
 import com.xpdustry.imperium.common.message.Message
 import com.xpdustry.imperium.common.message.Messenger
 import kotlin.time.Duration
@@ -42,36 +39,60 @@ interface AccountProfileService {
     suspend fun updateMetadata(id: Int, entries: Map<String, String>)
 }
 
-@Serializable data class AccountProfileUpdateMessage(val account: Int) : Message
+sealed interface AccountProfileUpdateMessage : Message {
+    val account: Int
+
+    @Serializable data class Generic(override val account: Int) : AccountProfileUpdateMessage
+
+    @Serializable
+    data class Achievement(
+        override val account: Int,
+        val achievement: com.xpdustry.imperium.common.account.Achievement,
+        val completed: Boolean,
+    ) : AccountProfileUpdateMessage
+
+    @Serializable
+    data class Rank(override val account: Int, val rank: com.xpdustry.imperium.common.account.Rank) :
+        AccountProfileUpdateMessage
+}
 
 class SimpleAccountProfileService(private val accounts: AccountRepository, private val messenger: Messenger) :
     AccountProfileService {
+
     override suspend fun updateDiscord(id: Int, discord: Long) {
         accounts.updateDiscord(id, discord)
-        messenger.publish(AccountProfileUpdateMessage(id), local = true)
+        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun incrementGames(id: Int) {
-        TODO("Not yet implemented")
+        accounts.incrementGames(id)
+        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun incrementPlaytime(id: Int, duration: Duration) {
-        TODO("Not yet implemented")
+        accounts.incrementPlaytime(id, duration)
+        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean) {
-        TODO("Not yet implemented")
+        if (completed != (achievement in accounts.selectById(id)!!.achievements)) {
+            accounts.updateAchievement(id, achievement, completed)
+            messenger.publish(AccountProfileUpdateMessage.Achievement(id, achievement, completed), local = true)
+        }
     }
 
     override suspend fun updateRank(id: Int, rank: Rank) {
-        TODO("Not yet implemented")
+        accounts.updateRank(id, rank)
+        messenger.publish(AccountProfileUpdateMessage.Rank(id, rank), local = true)
     }
 
     override suspend fun updateMetadata(id: Int, key: String, value: String) {
-        TODO("Not yet implemented")
+        accounts.updateMetadata(id, key, value)
+        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun updateMetadata(id: Int, entries: Map<String, String>) {
-        TODO("Not yet implemented")
+        for ((key, value) in entries) accounts.updateMetadata(id, key, value)
+        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
     }
 }

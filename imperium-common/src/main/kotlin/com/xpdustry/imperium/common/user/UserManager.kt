@@ -56,11 +56,11 @@ interface UserManager {
 
     suspend fun incrementJoins(identity: Identity.Mindustry)
 
-    suspend fun getSetting(uuid: MindustryUUID, setting: User.Setting): Boolean
+    suspend fun getSetting(uuid: MindustryUUID, setting: Setting): Boolean
 
-    suspend fun getSettings(uuid: MindustryUUID): Map<User.Setting, Boolean>
+    suspend fun getSettings(uuid: MindustryUUID): Map<Setting, Boolean>
 
-    suspend fun setSetting(uuid: MindustryUUID, setting: User.Setting, value: Boolean)
+    suspend fun setSetting(uuid: MindustryUUID, setting: Setting, value: Boolean)
 }
 
 class SimpleUserManager(private val provider: SQLProvider, private val messenger: Messenger) :
@@ -173,12 +173,12 @@ class SimpleUserManager(private val provider: SQLProvider, private val messenger
             }
         }
 
-    override suspend fun getSetting(uuid: MindustryUUID, setting: User.Setting): Boolean =
+    override suspend fun getSetting(uuid: MindustryUUID, setting: Setting): Boolean =
         getSettings0(uuid)[setting] ?: setting.default
 
-    override suspend fun getSettings(uuid: MindustryUUID): Map<User.Setting, Boolean> = getSettings0(uuid)
+    override suspend fun getSettings(uuid: MindustryUUID): Map<Setting, Boolean> = getSettings0(uuid)
 
-    private suspend fun getSettings0(uuid: MindustryUUID): Map<User.Setting, Boolean> =
+    private suspend fun getSettings0(uuid: MindustryUUID): Map<Setting, Boolean> =
         provider.newSuspendTransaction {
             (UserSettingTable leftJoin UserTable)
                 .select(UserSettingTable.setting, UserSettingTable.value)
@@ -186,7 +186,7 @@ class SimpleUserManager(private val provider: SQLProvider, private val messenger
                 .associate { it[UserSettingTable.setting] to it[UserSettingTable.value] }
         }
 
-    override suspend fun setSetting(uuid: MindustryUUID, setting: User.Setting, value: Boolean): Unit =
+    override suspend fun setSetting(uuid: MindustryUUID, setting: Setting, value: Boolean): Unit =
         provider.newSuspendTransaction {
             val user = findByUuid(uuid) ?: return@newSuspendTransaction
             UserSettingTable.upsert {

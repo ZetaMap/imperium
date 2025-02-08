@@ -31,7 +31,7 @@ import com.xpdustry.imperium.common.config.ImperiumConfig
 import com.xpdustry.imperium.common.inject.InstanceManager
 import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.misc.toHexString
-import com.xpdustry.imperium.common.user.User
+import com.xpdustry.imperium.common.user.Setting
 import com.xpdustry.imperium.common.user.UserManager
 import com.xpdustry.imperium.mindustry.game.MenuToPlayEvent
 import com.xpdustry.imperium.mindustry.misc.Entities
@@ -100,7 +100,7 @@ class ResourceHudListener(instances: InstanceManager) : ImperiumApplication.List
         updateResourceTrackers()
         ImperiumScope.MAIN.launch {
             for (player in Entities.getPlayersAsync()) {
-                val enabled = users.getSetting(player.uuid(), User.Setting.RESOURCE_HUD)
+                val enabled = users.getSetting(player.uuid(), Setting.RESOURCE_HUD)
                 Core.app.post {
                     if (enabled) {
                         if (getActiveWindow(player) == null) popup.create(player).show()

@@ -42,7 +42,6 @@ import com.xpdustry.imperium.common.webhook.WebhookMessageSender
 import com.xpdustry.imperium.mindustry.account.AccountCommand
 import com.xpdustry.imperium.mindustry.account.AccountListener
 import com.xpdustry.imperium.mindustry.account.AchievementCommand
-import com.xpdustry.imperium.mindustry.account.UserSettingsCommand
 import com.xpdustry.imperium.mindustry.chat.BridgeChatMessageListener
 import com.xpdustry.imperium.mindustry.chat.ChatCommand
 import com.xpdustry.imperium.mindustry.chat.FlexListener
@@ -78,6 +77,7 @@ import com.xpdustry.imperium.mindustry.security.NoHornyListener
 import com.xpdustry.imperium.mindustry.security.PunishmentListener
 import com.xpdustry.imperium.mindustry.security.ReportCommand
 import com.xpdustry.imperium.mindustry.security.VoteKickCommand
+import com.xpdustry.imperium.mindustry.setting.UserSettingCommand
 import com.xpdustry.imperium.mindustry.telemetry.DumpCommand
 import com.xpdustry.imperium.mindustry.world.CoreBlockListener
 import com.xpdustry.imperium.mindustry.world.ExcavateCommand
@@ -165,7 +165,7 @@ class ImperiumPlugin : AbstractMindustryPlugin() {
                 KillAllCommand::class,
                 DumpCommand::class,
                 SwitchCommand::class,
-                UserSettingsCommand::class,
+                UserSettingCommand::class,
                 WelcomeListener::class,
                 ResourceHudListener::class,
                 ImperiumLogicListener::class,
