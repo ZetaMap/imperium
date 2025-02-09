@@ -19,8 +19,6 @@ package com.xpdustry.imperium.common
 
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import com.xpdustry.imperium.common.account.AccountManager
-import com.xpdustry.imperium.common.account.SimpleAccountManager
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.bridge.PlayerTracker
 import com.xpdustry.imperium.common.bridge.RequestingPlayerTracker
@@ -91,8 +89,6 @@ fun MutableInstanceManager.registerCommonModule() {
     }
 
     provider<SQLProvider> { SimpleSQLProvider(get<ImperiumConfig>().database, get("directory")) }
-
-    provider<AccountManager> { SimpleAccountManager(get(), get(), get()) }
 
     provider<MindustryMapManager> { SimpleMindustryMapManager(get(), get(), get(), get()) }
 

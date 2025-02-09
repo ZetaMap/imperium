@@ -50,13 +50,13 @@ interface AccountRepository {
 
     suspend fun incrementPlaytime(id: Int, duration: Duration)
 
-    suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean)
+    suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Boolean
 
     suspend fun updateRank(id: Int, rank: Rank)
 
     suspend fun updatePassword(id: Int, password: PasswordHash)
 
-    suspend fun updateMetadata(id: Int, key: String, value: String)
+    suspend fun updateMetadata(id: Int, key: String, value: String): Boolean
 
     suspend fun selectPasswordById(id: Int): PasswordHash?
 }
@@ -162,19 +162,36 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 }
         }
 
-    override suspend fun selectById(id: Int) = selectBy0("SELECT * FROM `account` WHERE `id` = ?") { it.setInt(1, id) }
+    override suspend fun selectById(id: Int) =
+        selectBy0(
+            """
+        SELECT * FROM `account` WHERE `id` = ?
+        """
+        ) {
+            it.setInt(1, id)
+        }
 
     override suspend fun existsById(id: Int) = source.transaction { connection -> existsById(connection, id) }
 
     override suspend fun selectByUsername(username: String) =
-        selectBy0("SELECT * FROM `account` WHERE `username` = ?") { it.setString(1, username) }
+        selectBy0(
+            """
+            SELECT * FROM `account` WHERE `username` = ?
+            """
+                .trimIndent()
+        ) {
+            it.setString(1, username)
+        }
 
     override suspend fun existsByUsername(username: String) =
         source.transaction { connection ->
             connection
                 .prepareStatement(
                     """
-                    SELECT 1 FROM `account` WHERE `username` = ? LIMIT 1
+                    SELECT 1
+                    FROM `account`
+                    WHERE `username` = ?
+                    LIMIT 1
                     """
                         .trimIndent()
                 )
@@ -198,7 +215,9 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                     connection
                         .prepareStatement(
                             """
-                            SELECT `achievement` FROM `account_achievement` WHERE `account_id` = ?
+                            SELECT `achievement`
+                            FROM `account_achievement`
+                            WHERE `account_id` = ?
                             """
                                 .trimIndent()
                         )
@@ -214,7 +233,9 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                     connection
                         .prepareStatement(
                             """
-                            SELECT `key`, `value` FROM `account_metadata` WHERE `account_id` = ?
+                            SELECT `key`, `value`
+                            FROM `account_metadata`
+                            WHERE `account_id` = ?
                             """
                                 .trimIndent()
                         )
@@ -301,7 +322,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 }
         }
 
-    override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Unit =
+    override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Boolean =
         source.transaction { connection ->
             ensureAccountExists(connection, id)
             if (completed) {
@@ -316,7 +337,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                     .use { statement ->
                         statement.setInt(1, id)
                         statement.setString(2, achievement.name)
-                        statement.executeUpdate()
+                        statement.executeUpdate() > 0
                     }
             } else {
                 connection
@@ -331,7 +352,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                     .use { statement ->
                         statement.setInt(1, id)
                         statement.setString(2, achievement.name)
-                        statement.executeUpdate()
+                        statement.executeUpdate() > 0
                     }
             }
         }
@@ -377,7 +398,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 }
         }
 
-    override suspend fun updateMetadata(id: Int, key: String, value: String): Unit =
+    override suspend fun updateMetadata(id: Int, key: String, value: String): Boolean =
         source.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
@@ -393,7 +414,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                     statement.setInt(1, id)
                     statement.setString(2, key)
                     statement.setString(3, value)
-                    statement.executeUpdate()
+                    statement.executeUpdate() > 0
                 }
         }
 
@@ -401,7 +422,10 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
         connection
             .prepareStatement(
                 """
-                SELECT 1 FROM `account` WHERE `id` = ? LIMIT 1
+                SELECT 1
+                FROM `account`
+                WHERE `id` = ?
+                LIMIT 1
                 """
                     .trimIndent()
             )
@@ -415,7 +439,10 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
             connection
                 .prepareStatement(
                     """
-                    SELECT `password_hash`, `password_salt` FROM `account` WHERE `id` = ? LIMIT 1
+                    SELECT `password_hash`, `password_salt`
+                    FROM `account`
+                    WHERE `id` = ?
+                    LIMIT 1
                     """
                         .trimIndent()
                 )

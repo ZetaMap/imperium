@@ -18,6 +18,7 @@
 package com.xpdustry.imperium.common.user
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
+import com.xpdustry.imperium.common.database.mapTo
 import com.xpdustry.imperium.common.database.transaction
 import com.xpdustry.imperium.common.misc.MindustryUUID
 import com.xpdustry.imperium.common.misc.toCRC32Muuid
@@ -274,9 +275,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
                     )
                     .use { statement ->
                         statement.setInt(1, id)
-                        statement.executeQuery().use { result ->
-                            generateSequence { if (!result.next()) null else result.getString("name") }.toList()
-                        }
+                        statement.executeQuery().use { result -> result.mapTo(hashSetOf()) { it.getString("name") } }
                     }
 
             val addresses =
@@ -292,10 +291,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
                     .use { statement ->
                         statement.setInt(1, id)
                         statement.executeQuery().use { result ->
-                            generateSequence {
-                                    if (!result.next()) null else InetAddress.getByAddress(result.getBytes("address"))
-                                }
-                                .toList()
+                            result.mapTo(hashSetOf()) { InetAddress.getByAddress(it.getBytes("address")) }
                         }
                     }
 

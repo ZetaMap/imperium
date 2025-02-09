@@ -17,7 +17,8 @@
  */
 package com.xpdustry.imperium.discord.service
 
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.async.ImperiumScope
@@ -60,7 +61,7 @@ interface DiscordService {
 class SimpleDiscordService(
     private val config: ImperiumConfig,
     private val http: OkHttpClient,
-    private val accounts: AccountManager,
+    private val accounts: AccountLookupService,
 ) : DiscordService, ImperiumApplication.Listener {
     override lateinit var jda: JDA
 
@@ -129,7 +130,8 @@ class SimpleDiscordService(
         val member = getMainServer().getMemberById(discord) ?: return
         val current = member.roles.associateBy(Role::getIdLong)
 
-        for ((achievement, completed) in accounts.selectAchievements(id)) {
+        for (achievement in Achievement.entries) {
+            val completed = achievement in account.achievements
             val roleId = config.discord.achievements2roles[achievement] ?: continue
             val role = getMainServer().getRoleById(roleId) ?: continue
             if (completed) {

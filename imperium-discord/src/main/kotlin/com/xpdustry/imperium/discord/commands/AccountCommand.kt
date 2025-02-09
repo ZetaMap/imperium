@@ -17,7 +17,8 @@
  */
 package com.xpdustry.imperium.discord.commands
 
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.AccountProfileService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
@@ -30,7 +31,8 @@ import com.xpdustry.imperium.discord.misc.await
 import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
 
 class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener {
-    private val accounts = instances.get<AccountManager>()
+    private val lookup = instances.get<AccountLookupService>()
+    private val profile = instances.get<AccountProfileService>()
     private val codec = instances.get<IdentifierCodec>()
 
     @ImperiumCommand(["account", "edit", "rank"], Rank.OWNER)
@@ -42,16 +44,16 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
         }
         var id: Int? = null
         val parsed = codec.tryDecode(target)
-        if (parsed != null && accounts.existsById(parsed)) {
+        if (parsed != null && lookup.existsById(parsed)) {
             id = parsed
         } else if (target.toLongOrNull() != null) {
-            id = accounts.selectByDiscord(target.toLong())?.id
+            id = lookup.selectByDiscord(target.toLong())?.id
         }
         if (id == null) {
             reply.sendMessage("Account not found.").await()
             return
         }
-        accounts.updateRank(id, rank)
+        profile.updateRank(id, rank)
         reply.sendMessage("Set rank to $rank.").await()
     }
 
@@ -65,16 +67,16 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
         val reply = interaction.deferReply(true).await()
         var id: Int? = null
         val parsed = codec.tryDecode(target)
-        if (parsed != null && accounts.existsById(parsed)) {
+        if (parsed != null && lookup.existsById(parsed)) {
             id = parsed
         } else if (target.toLongOrNull() != null) {
-            id = accounts.selectByDiscord(target.toLong())?.id
+            id = lookup.selectByDiscord(target.toLong())?.id
         }
         if (id == null) {
             reply.sendMessage("Account not found.").await()
             return
         }
-        accounts.updateAchievement(id, achievement, completion)
+        profile.updateAchievement(id, achievement, completion)
         reply.sendMessage("Set ${achievement.name} achievement to $completion.").await()
     }
 }

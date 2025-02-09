@@ -29,6 +29,8 @@ interface AccountLookupService {
 
     suspend fun selectById(account: Int): Account?
 
+    suspend fun existsById(account: Int): Boolean
+
     suspend fun selectByDiscord(discord: Long): Account?
 
     fun selectBySessionCached(key: MindustrySession.Key): Account?
@@ -62,6 +64,10 @@ class SimpleAccountLookupService(
 
     override suspend fun selectById(account: Int): Account? {
         return accounts.selectById(account)
+    }
+
+    override suspend fun existsById(account: Int): Boolean {
+        return accounts.existsById(account)
     }
 
     override suspend fun selectByDiscord(discord: Long): Account? {

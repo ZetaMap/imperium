@@ -18,6 +18,7 @@
 package com.xpdustry.imperium.common.database
 
 import java.sql.Connection
+import java.sql.ResultSet
 import javax.sql.DataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,3 +39,10 @@ suspend fun <T> DataSource.transaction(block: suspend (Connection) -> T): T =
             connection.close()
         }
     }
+
+fun <T> ResultSet.map(transform: (ResultSet) -> T): List<T> = mapTo(ArrayList(), transform)
+
+fun <T, C : MutableCollection<T>> ResultSet.mapTo(collection: C, transform: (ResultSet) -> T): C {
+    while (next()) collection.add(transform(this))
+    return collection
+}

@@ -28,7 +28,7 @@ import com.xpdustry.distributor.api.gui.BiAction
 import com.xpdustry.distributor.api.gui.WindowManager
 import com.xpdustry.distributor.api.plugin.MindustryPlugin
 import com.xpdustry.imperium.common.account.AccountResult
-import com.xpdustry.imperium.common.account.AccountSecurityService
+import com.xpdustry.imperium.common.account.AccountSessionService
 import com.xpdustry.imperium.mindustry.gui.TextFormWindowManager
 import com.xpdustry.imperium.mindustry.misc.CoroutineAction
 import com.xpdustry.imperium.mindustry.misc.asAudience
@@ -38,7 +38,7 @@ import com.xpdustry.imperium.mindustry.translation.SCARLET
 
 val REMEMBER_LOGIN_WARNING = key("remember-login-warning", Boolean::class.javaObjectType)
 
-fun LoginWindow(plugin: MindustryPlugin, security: AccountSecurityService): WindowManager =
+fun LoginWindow(plugin: MindustryPlugin, session: AccountSessionService): WindowManager =
     TextFormWindowManager<LoginPage>(
         plugin,
         "login",
@@ -51,7 +51,7 @@ fun LoginWindow(plugin: MindustryPlugin, security: AccountSecurityService): Wind
         submit =
             BiAction.delegate { _, data ->
                 CoroutineAction(success = LoginResultAction()) { window ->
-                    security.login(
+                    session.login(
                         window.viewer.sessionKey,
                         data[LoginPage.USERNAME]!!,
                         data[LoginPage.PASSWORD]!!.toCharArray(),

@@ -110,6 +110,7 @@ class SimpleUserManager(private val provider: SQLProvider, private val messenger
                     lastAddress = identity.address,
                     lastJoin = Instant.EPOCH,
                     firstJoin = now,
+                    timesJoined = 0,
                 )
             }
         }

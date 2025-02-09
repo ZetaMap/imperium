@@ -25,6 +25,7 @@ import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.AccountProfileService
 import com.xpdustry.imperium.common.account.AccountProfileUpdateMessage
 import com.xpdustry.imperium.common.account.AccountSecurityService
+import com.xpdustry.imperium.common.account.AccountSessionService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.async.ImperiumScope
@@ -53,6 +54,7 @@ class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener
     private val lookup = instances.get<AccountLookupService>()
     private val profile = instances.get<AccountProfileService>()
     private val security = instances.get<AccountSecurityService>()
+    private val sessions = instances.get<AccountSessionService>()
     private val users = instances.get<UserManager>()
     private val playtime = ConcurrentHashMap<Player, Long>()
     private val messenger = instances.get<Messenger>()
@@ -112,7 +114,7 @@ class AccountListener(instances: InstanceManager) : ImperiumApplication.Listener
                 checkPlaytimeAchievements(account, playtime)
             }
             if (!users.getSetting(event.player.uuid(), Setting.REMEMBER_LOGIN)) {
-                security.logout(event.player.sessionKey)
+                sessions.logout(event.player.sessionKey)
             }
         }
     }

@@ -17,7 +17,8 @@
  */
 package com.xpdustry.imperium.discord.commands
 
-import com.xpdustry.imperium.common.account.AccountManager
+import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.AccountProfileService
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.command.ImperiumCommand
@@ -26,7 +27,6 @@ import com.xpdustry.imperium.common.inject.InstanceManager
 import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.message.Messenger
 import com.xpdustry.imperium.common.message.consumer
-import com.xpdustry.imperium.common.misc.LoggerDelegate
 import com.xpdustry.imperium.common.misc.MindustryUSID
 import com.xpdustry.imperium.common.misc.MindustryUUID
 import com.xpdustry.imperium.common.misc.buildCache
@@ -41,7 +41,8 @@ import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
 class VerifyCommand(instances: InstanceManager) : ImperiumApplication.Listener {
     private val config = instances.get<ImperiumConfig>()
     private val discord = instances.get<DiscordService>()
-    private val accounts = instances.get<AccountManager>()
+    private val profile = instances.get<AccountProfileService>()
+    private val lookup = instances.get<AccountLookupService>()
     private val limiter = SimpleRateLimiter<Long>(3, 10.minutes)
     private val messenger = instances.get<Messenger>()
     private val pending = buildCache<Int, Verification> { expireAfterWrite(10.minutes.toJavaDuration()) }
@@ -67,17 +68,13 @@ class VerifyCommand(instances: InstanceManager) : ImperiumApplication.Listener {
             return
         }
 
-        if (!accounts.updateDiscord(verification.account, interaction.user.idLong)) {
-            reply.sendMessage("An unexpected error occurred while verifying you.").await()
-            logger.error("Failed to update user discord ${interaction.user.effectiveName}")
-            return
-        }
+        profile.updateDiscord(verification.account, interaction.user.idLong)
 
-        var rank = accounts.selectById(verification.account)!!.rank
+        var rank = lookup.selectById(verification.account)!!.rank
         for (role in interaction.member!!.roles) {
             rank = maxOf(rank, config.discord.roles2ranks[role.idLong] ?: Rank.VERIFIED)
         }
-        accounts.updateRank(verification.account, rank)
+        profile.updateRank(verification.account, rank)
 
         discord.syncRoles(interaction.member!!)
         messenger.publish(VerificationMessage(verification.account, verification.uuid, verification.usid, code, true))
@@ -85,8 +82,4 @@ class VerifyCommand(instances: InstanceManager) : ImperiumApplication.Listener {
     }
 
     data class Verification(val account: Int, val uuid: MindustryUUID, val usid: MindustryUSID)
-
-    companion object {
-        private val logger by LoggerDelegate()
-    }
 }

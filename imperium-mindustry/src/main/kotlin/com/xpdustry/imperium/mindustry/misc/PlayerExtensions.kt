@@ -28,6 +28,7 @@ import mindustry.Vars
 import mindustry.gen.Call
 import mindustry.gen.Player
 
+@Deprecated("Shit API")
 val Player.identity: Identity.Mindustry
     get() = Identity.Mindustry(info.plainLastName(), uuid(), usid(), con.address.toInetAddress(), info.lastName)
 

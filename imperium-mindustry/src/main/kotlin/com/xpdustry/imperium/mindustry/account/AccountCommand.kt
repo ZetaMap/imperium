@@ -21,6 +21,7 @@ import com.xpdustry.distributor.api.command.CommandSender
 import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.AccountResult
 import com.xpdustry.imperium.common.account.AccountSecurityService
+import com.xpdustry.imperium.common.account.AccountSessionService
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.command.ImperiumCommand
 import com.xpdustry.imperium.common.inject.InstanceManager
@@ -43,9 +44,10 @@ import kotlin.time.toJavaDuration
 class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener {
     private val lookup = instances.get<AccountLookupService>()
     private val security = instances.get<AccountSecurityService>()
+    private val sessions = instances.get<AccountSessionService>()
     private val settings = instances.get<UserSettingService>()
     private val messenger = instances.get<Messenger>()
-    private val login = LoginWindow(instances.get(), security)
+    private val login = LoginWindow(instances.get(), sessions)
     private val register = RegisterWindow(instances.get(), security)
     private val changePassword = ChangePasswordWindow(instances.get(), security, lookup)
     private val verifications = buildCache<Int, Int> { expireAfterWrite(10.minutes.toJavaDuration()) }
@@ -74,7 +76,7 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
         if (lookup.selectBySessionCached(sender.player.sessionKey) == null) {
             sender.player.sendMessage("You are not logged in!")
         } else {
-            security.logout(sender.player.sessionKey)
+            sessions.logout(sender.player.sessionKey)
             sender.player.sendMessage("You have been logged out!")
         }
     }

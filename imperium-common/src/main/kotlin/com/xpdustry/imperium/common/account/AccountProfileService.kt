@@ -75,8 +75,7 @@ class SimpleAccountProfileService(private val accounts: AccountRepository, priva
     }
 
     override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean) {
-        if (completed != (achievement in accounts.selectById(id)!!.achievements)) {
-            accounts.updateAchievement(id, achievement, completed)
+        if (accounts.updateAchievement(id, achievement, completed)) {
             messenger.publish(AccountProfileUpdateMessage.Achievement(id, achievement, completed), local = true)
         }
     }
@@ -87,12 +86,16 @@ class SimpleAccountProfileService(private val accounts: AccountRepository, priva
     }
 
     override suspend fun updateMetadata(id: Int, key: String, value: String) {
-        accounts.updateMetadata(id, key, value)
-        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        if (accounts.updateMetadata(id, key, value)) {
+            messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        }
     }
 
     override suspend fun updateMetadata(id: Int, entries: Map<String, String>) {
-        for ((key, value) in entries) accounts.updateMetadata(id, key, value)
-        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        var changed = false
+        for ((key, value) in entries) changed = changed || accounts.updateMetadata(id, key, value)
+        if (changed) {
+            messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        }
     }
 }

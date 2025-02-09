@@ -20,7 +20,6 @@ package com.xpdustry.imperium.mindustry.chat
 import com.xpdustry.distributor.api.Distributor
 import com.xpdustry.distributor.api.component.TextComponent.text
 import com.xpdustry.distributor.api.key.StandardKeys
-import com.xpdustry.distributor.api.plugin.MindustryPlugin
 import com.xpdustry.distributor.api.util.Priority
 import com.xpdustry.flex.FlexAPI
 import com.xpdustry.flex.message.MessageContext
@@ -32,7 +31,6 @@ import com.xpdustry.flex.placeholder.template.TemplateStep
 import com.xpdustry.flex.translator.Translator
 import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.application.ImperiumApplication
-import com.xpdustry.imperium.common.async.ImperiumScope
 import com.xpdustry.imperium.common.config.ImperiumConfig
 import com.xpdustry.imperium.common.inject.InstanceManager
 import com.xpdustry.imperium.common.inject.get
@@ -44,18 +42,15 @@ import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.translation.SCARLET
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
-import kotlinx.coroutines.future.await
-import kotlinx.coroutines.future.future
 import mindustry.gen.Iconc
 
 class FlexListener(instances: InstanceManager) : ImperiumApplication.Listener {
     private val config = instances.get<ImperiumConfig>()
-    private val plugin = instances.get<MindustryPlugin>()
     private val lookup = instances.get<AccountLookupService>()
     private val settings = instances.get<UserSettingService>()
 
     override fun onImperiumInit() {
-        FlexAPI.get().placeholders.register("imperium", ImperiumPlaceholderProcessor(plugin, lookup, settings))
+        FlexAPI.get().placeholders.register("imperium", ImperiumPlaceholderProcessor(lookup, settings))
 
         FlexAPI.get()
             .templates
@@ -141,20 +136,19 @@ class FlexListener(instances: InstanceManager) : ImperiumApplication.Listener {
                 "translator",
                 Priority.LOW,
                 object : TranslationProcessor() {
-                    override fun process(context: MessageContext) =
-                        ImperiumScope.MAIN.future {
-                            val muuid = context.sender.metadata[StandardKeys.MUUID]
-                            var sourceLocale = context.sender.metadata[StandardKeys.LOCALE] ?: Locale.getDefault()
-                            val targetLocale = context.target.metadata[StandardKeys.LOCALE] ?: Locale.getDefault()
-                            if (
-                                sourceLocale.language != targetLocale.language &&
-                                    muuid != null &&
-                                    users.getSetting(muuid.uuid, Setting.AUTOMATIC_LANGUAGE_DETECTION)
-                            ) {
-                                sourceLocale = Translator.AUTO_DETECT
-                            }
-                            process(context, sourceLocale, targetLocale).await()
+                    override fun process(context: MessageContext): CompletableFuture<String> {
+                        val muuid = context.sender.metadata[StandardKeys.MUUID]
+                        var sourceLocale = context.sender.metadata[StandardKeys.LOCALE] ?: Locale.getDefault()
+                        val targetLocale = context.target.metadata[StandardKeys.LOCALE] ?: Locale.getDefault()
+                        if (
+                            sourceLocale.language != targetLocale.language &&
+                                muuid != null &&
+                                settings.selectSetting(muuid.uuid, Setting.AUTOMATIC_LANGUAGE_DETECTION)
+                        ) {
+                            sourceLocale = Translator.AUTO_DETECT
                         }
+                        return process(context, sourceLocale, targetLocale)
+                    }
                 },
             )
     }

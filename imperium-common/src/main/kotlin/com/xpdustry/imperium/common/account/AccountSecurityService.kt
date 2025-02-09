@@ -17,35 +17,16 @@
  */
 package com.xpdustry.imperium.common.account
 
-import com.xpdustry.imperium.common.config.ImperiumConfig
-import com.xpdustry.imperium.common.message.Message
-import com.xpdustry.imperium.common.message.Messenger
 import com.xpdustry.imperium.common.security.PasswordHashFunction
 import com.xpdustry.imperium.common.security.requirement.PasswordRequirement
 import com.xpdustry.imperium.common.security.requirement.UsernameRequirement
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 
 interface AccountSecurityService {
-
-    suspend fun login(key: MindustrySession.Key, username: String, password: CharArray): AccountResult
-
-    suspend fun logout(key: MindustrySession.Key, all: Boolean = false)
-
     suspend fun register(username: String, password: CharArray): AccountResult
 
     suspend fun changePassword(id: Int, oldPassword: CharArray, newPassword: CharArray): AccountResult
-}
-
-@Serializable
-data class AccountAuthenticationMessage(val player: MindustrySession.Key, val type: Type) : Message {
-    enum class Type {
-        LOGIN,
-        LOGOUT,
-    }
 }
 
 class SimpleAccountSecurityService(
@@ -53,40 +34,7 @@ class SimpleAccountSecurityService(
     private val function: PasswordHashFunction,
     private val legacy: LegacyAccountRepository,
     private val passwords: PasswordHashFunction,
-    private val sessions: AccountSessionRepository,
-    private val messenger: Messenger,
-    private val config: ImperiumConfig,
 ) : AccountSecurityService {
-    override suspend fun login(key: MindustrySession.Key, username: String, password: CharArray): AccountResult {
-        if (sessions.selectByKey(key)?.expired == false) {
-            return AccountResult.AlreadyLogged
-        }
-        val account = accounts.selectByUsername(username) ?: return AccountResult.NotFound
-        val hash0 = accounts.selectPasswordById(account.id)!!
-        val hash1 = withContext(Dispatchers.IO) { function.hash(password, hash0.salt) }
-        if (hash0 != hash1) {
-            return AccountResult.WrongPassword
-        }
-        sessions.upsertSession(
-            MindustrySession(key, config.server.name, account.id, Instant.now().plus(30, ChronoUnit.DAYS))
-        )
-        messenger.publish(AccountAuthenticationMessage(key, AccountAuthenticationMessage.Type.LOGIN), local = true)
-        return AccountResult.Success(account.id)
-    }
-
-    override suspend fun logout(key: MindustrySession.Key, all: Boolean) {
-        val success =
-            if (all) {
-                val account = sessions.selectByKey(key) ?: return
-                sessions.deleteByAccount(account.account)
-            } else {
-                sessions.deleteByKey(key)
-            }
-        if (success) {
-            messenger.publish(AccountAuthenticationMessage(key, AccountAuthenticationMessage.Type.LOGOUT), local = true)
-        }
-    }
-
     override suspend fun register(username: String, password: CharArray): AccountResult {
         if (accounts.existsByUsername(username)) {
             return AccountResult.AlreadyRegistered
