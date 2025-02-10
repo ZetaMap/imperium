@@ -29,7 +29,6 @@ import com.xpdustry.flex.placeholder.template.TemplateFilter
 import com.xpdustry.flex.placeholder.template.TemplateManager
 import com.xpdustry.flex.placeholder.template.TemplateStep
 import com.xpdustry.flex.translator.Translator
-import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.config.ImperiumConfig
 import com.xpdustry.imperium.common.inject.InstanceManager
@@ -39,6 +38,7 @@ import com.xpdustry.imperium.common.misc.containsLink
 import com.xpdustry.imperium.common.misc.toHexString
 import com.xpdustry.imperium.common.user.Setting
 import com.xpdustry.imperium.common.user.UserSettingService
+import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.translation.SCARLET
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
@@ -46,11 +46,11 @@ import mindustry.gen.Iconc
 
 class FlexListener(instances: InstanceManager) : ImperiumApplication.Listener {
     private val config = instances.get<ImperiumConfig>()
-    private val lookup = instances.get<AccountLookupService>()
+    private val cache = instances.get<AccountCacheService>()
     private val settings = instances.get<UserSettingService>()
 
     override fun onImperiumInit() {
-        FlexAPI.get().placeholders.register("imperium", ImperiumPlaceholderProcessor(lookup, settings))
+        FlexAPI.get().placeholders.register("imperium", ImperiumPlaceholderProcessor(cache, settings))
 
         FlexAPI.get()
             .templates

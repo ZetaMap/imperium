@@ -19,7 +19,6 @@ package com.xpdustry.imperium.mindustry.security
 
 import arc.Events
 import com.xpdustry.distributor.api.plugin.MindustryPlugin
-import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.async.ImperiumScope
@@ -31,9 +30,9 @@ import com.xpdustry.imperium.common.security.Identity
 import com.xpdustry.imperium.common.security.Punishment
 import com.xpdustry.imperium.common.security.PunishmentManager
 import com.xpdustry.imperium.common.user.UserManager
+import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.misc.identity
 import com.xpdustry.imperium.mindustry.misc.runMindustryThread
-import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.misc.showInfoMessage
 import com.xpdustry.imperium.mindustry.ui.Interface
 import com.xpdustry.imperium.mindustry.ui.View
@@ -68,7 +67,7 @@ class AdminRequestListener(instances: InstanceManager) : ImperiumApplication.Lis
     private val plugin = instances.get<MindustryPlugin>()
     private val punishments = instances.get<PunishmentManager>()
     private val users = instances.get<UserManager>()
-    private val lookup = instances.get<AccountLookupService>()
+    private val cache = instances.get<AccountCacheService>()
     private val codec = instances.get<IdentifierCodec>()
     private lateinit var adminActionInterface: Interface
 
@@ -251,7 +250,7 @@ class AdminRequestListener(instances: InstanceManager) : ImperiumApplication.Lis
                 Call.infoMessage(requester.con, "Player not found.")
                 return@launch
             }
-            val canSeeInfo = (lookup.selectBySessionCached(requester.sessionKey)?.rank ?: Rank.EVERYONE) >= Rank.ADMIN
+            val canSeeInfo = (cache.selectByPlayer(requester)?.rank ?: Rank.EVERYONE) >= Rank.ADMIN
             val historic = users.findNamesAndAddressesById(user.id)
             Call.traceInfo(
                 requester.con,
@@ -279,7 +278,7 @@ class AdminRequestListener(instances: InstanceManager) : ImperiumApplication.Lis
 
     private fun handleWaveSkip(requester: Player) =
         ImperiumScope.MAIN.launch {
-            val rank = lookup.selectBySessionCached(requester.sessionKey)?.rank ?: Rank.EVERYONE
+            val rank = cache.selectByPlayer(requester)?.rank ?: Rank.EVERYONE
             if (rank >= Rank.MODERATOR) {
                 runMindustryThread {
                     Vars.logic.skipWave()

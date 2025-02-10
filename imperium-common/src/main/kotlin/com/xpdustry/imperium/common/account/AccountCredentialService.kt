@@ -23,18 +23,18 @@ import com.xpdustry.imperium.common.security.requirement.UsernameRequirement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-interface AccountSecurityService {
+interface AccountCredentialService {
     suspend fun register(username: String, password: CharArray): AccountResult
 
     suspend fun changePassword(id: Int, oldPassword: CharArray, newPassword: CharArray): AccountResult
 }
 
-class SimpleAccountSecurityService(
+class SimpleAccountCredentialService(
     private val accounts: AccountRepository,
     private val function: PasswordHashFunction,
     private val legacy: LegacyAccountRepository,
     private val passwords: PasswordHashFunction,
-) : AccountSecurityService {
+) : AccountCredentialService {
     override suspend fun register(username: String, password: CharArray): AccountResult {
         if (accounts.existsByUsername(username)) {
             return AccountResult.AlreadyRegistered

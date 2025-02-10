@@ -25,6 +25,8 @@ import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.inject.provider
 import com.xpdustry.imperium.common.network.Discovery
 import com.xpdustry.imperium.common.version.ImperiumVersion
+import com.xpdustry.imperium.mindustry.account.AccountCacheService
+import com.xpdustry.imperium.mindustry.account.SimpleAccountCacheService
 import com.xpdustry.imperium.mindustry.bridge.MindustryPlayerTracker
 import com.xpdustry.imperium.mindustry.game.ClientDetector
 import com.xpdustry.imperium.mindustry.game.SimpleClientDetector
@@ -67,4 +69,6 @@ internal fun MutableInstanceManager.registerMindustryModule(plugin: MindustryPlu
     provider<HistoryRenderer> { SimpleHistoryRenderer(get(), get(), get()) }
 
     provider<MarkedPlayerManager> { SimpleMarkedPlayerManager(plugin) }
+
+    provider<AccountCacheService> { SimpleAccountCacheService(get(), get(), get()) }
 }

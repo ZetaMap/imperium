@@ -27,19 +27,17 @@ import com.xpdustry.distributor.api.gui.BiAction
 import com.xpdustry.distributor.api.gui.Window
 import com.xpdustry.distributor.api.gui.WindowManager
 import com.xpdustry.distributor.api.plugin.MindustryPlugin
-import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.AccountCredentialService
 import com.xpdustry.imperium.common.account.AccountResult
-import com.xpdustry.imperium.common.account.AccountSecurityService
 import com.xpdustry.imperium.mindustry.gui.TextFormWindowManager
 import com.xpdustry.imperium.mindustry.misc.CoroutineAction
 import com.xpdustry.imperium.mindustry.misc.asAudience
-import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.translation.gui_failure_password_mismatch
 
 fun ChangePasswordWindow(
     plugin: MindustryPlugin,
-    security: AccountSecurityService,
-    lookup: AccountLookupService,
+    security: AccountCredentialService,
+    cache: AccountCacheService,
 ): WindowManager =
     TextFormWindowManager<ChangePwdPage>(
         plugin,
@@ -51,9 +49,7 @@ fun ChangePasswordWindow(
                         .then(Action.audience { it.sendAnnouncement(gui_failure_password_mismatch()) })
                 }
                 CoroutineAction(success = ChangePasswordResultAction()) { window ->
-                    val account =
-                        lookup.selectBySessionCached(window.viewer.sessionKey)
-                            ?: return@CoroutineAction AccountResult.NotFound
+                    val account = cache.selectByPlayer(window.viewer) ?: return@CoroutineAction AccountResult.NotFound
                     security.changePassword(
                         account.id,
                         data[ChangePwdPage.OLD_PASSWORD]!!.toCharArray(),

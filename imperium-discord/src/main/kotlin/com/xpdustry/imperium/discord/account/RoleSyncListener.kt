@@ -17,9 +17,9 @@
  */
 package com.xpdustry.imperium.discord.account
 
-import com.xpdustry.imperium.common.account.AccountLookupService
-import com.xpdustry.imperium.common.account.AccountProfileService
-import com.xpdustry.imperium.common.account.AccountProfileUpdateMessage
+import com.xpdustry.imperium.common.account.AccountQueryService
+import com.xpdustry.imperium.common.account.AccountUpdateMessage
+import com.xpdustry.imperium.common.account.AccountUpdateService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.RankChangeEvent
 import com.xpdustry.imperium.common.application.ImperiumApplication
@@ -38,8 +38,8 @@ import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
 
 class RoleSyncListener(instances: InstanceManager) : ImperiumApplication.Listener {
     private val discord = instances.get<DiscordService>()
-    private val lookup = instances.get<AccountLookupService>()
-    private val profile = instances.get<AccountProfileService>()
+    private val lookup = instances.get<AccountQueryService>()
+    private val profile = instances.get<AccountUpdateService>()
     private val messenger = instances.get<Messenger>()
 
     override fun onImperiumInit() {
@@ -47,9 +47,9 @@ class RoleSyncListener(instances: InstanceManager) : ImperiumApplication.Listene
 
         messenger.consumer<RankChangeEvent> { (id) -> discord.syncRoles(id) }
 
-        messenger.consumer<AccountProfileUpdateMessage.Rank> { (id, _) -> discord.syncRoles(id) }
+        messenger.consumer<AccountUpdateMessage.Rank> { (id, _) -> discord.syncRoles(id) }
 
-        messenger.consumer<AccountProfileUpdateMessage.Achievement> { (id, _) -> discord.syncRoles(id) }
+        messenger.consumer<AccountUpdateMessage.Achievement> { (id, _) -> discord.syncRoles(id) }
 
         runBlocking { syncServerBoosterRoles() }
         discord.jda.addSuspendingEventListener<GuildUpdateBoostCountEvent> { _ -> syncServerBoosterRoles() }

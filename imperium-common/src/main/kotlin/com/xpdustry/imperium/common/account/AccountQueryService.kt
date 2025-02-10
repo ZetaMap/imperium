@@ -18,12 +18,8 @@
 package com.xpdustry.imperium.common.account
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
-import com.xpdustry.imperium.common.message.Messenger
-import com.xpdustry.imperium.common.message.consumer
-import com.xpdustry.imperium.common.mindustry.MindustryRuntime
-import java.util.concurrent.ConcurrentHashMap
 
-interface AccountLookupService {
+interface AccountQueryService {
 
     suspend fun selectByUsername(account: String): Account?
 
@@ -32,32 +28,10 @@ interface AccountLookupService {
     suspend fun existsById(account: Int): Boolean
 
     suspend fun selectByDiscord(discord: Long): Account?
-
-    fun selectBySessionCached(key: MindustrySession.Key): Account?
 }
 
-class SimpleAccountLookupService(
-    private val accounts: AccountRepository,
-    private val sessions: AccountSessionRepository,
-    private val messages: Messenger,
-    private val mindustry: MindustryRuntime,
-) : AccountLookupService, ImperiumApplication.Listener {
-    private val cache = ConcurrentHashMap<MindustrySession.Key, Account>()
-
-    override fun onImperiumInit() {
-        messages.consumer<AccountProfileUpdateMessage> { event ->
-            val account = selectById(event.account)!!
-            for (session in sessions.selectByAccount(account.id)) {
-                cache.computeIfPresent(session.key) { _, _ -> account }
-            }
-        }
-
-        mindustry.addPlayerListener(
-            { cache[it] = accounts.selectById(sessions.selectByKey(it)?.account ?: return@addPlayerListener)!! },
-            { cache.remove(it) },
-        )
-    }
-
+class SimpleAccountQueryService(private val accounts: AccountRepository) :
+    AccountQueryService, ImperiumApplication.Listener {
     override suspend fun selectByUsername(account: String): Account? {
         return accounts.selectByUsername(account)
     }
@@ -72,9 +46,5 @@ class SimpleAccountLookupService(
 
     override suspend fun selectByDiscord(discord: Long): Account? {
         return accounts.selectByDiscord(discord)
-    }
-
-    override fun selectBySessionCached(key: MindustrySession.Key): Account? {
-        return cache[key]
     }
 }

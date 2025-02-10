@@ -29,6 +29,8 @@ import kotlinx.serialization.Serializable
 
 interface AccountSessionService {
 
+    suspend fun selectByKey(key: MindustrySession.Key): MindustrySession?
+
     suspend fun selectByAccount(account: Int): List<MindustrySession>
 
     suspend fun login(key: MindustrySession.Key, username: String, password: CharArray): AccountResult
@@ -51,6 +53,12 @@ class SimpleAccountSessionService(
     private val messenger: Messenger,
     private val config: ImperiumConfig,
 ) : AccountSessionService {
+    // TODO Check session expiration
+    override suspend fun selectByKey(key: MindustrySession.Key): MindustrySession? {
+        return sessions.selectByKey(key)
+    }
+
+    // TODO Check session expiration
     override suspend fun selectByAccount(account: Int): List<MindustrySession> {
         return sessions.selectByAccount(account)
     }

@@ -18,9 +18,8 @@
 package com.xpdustry.imperium.mindustry.account
 
 import com.xpdustry.distributor.api.command.CommandSender
-import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.AccountCredentialService
 import com.xpdustry.imperium.common.account.AccountResult
-import com.xpdustry.imperium.common.account.AccountSecurityService
 import com.xpdustry.imperium.common.account.AccountSessionService
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.command.ImperiumCommand
@@ -42,20 +41,20 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toJavaDuration
 
 class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener {
-    private val lookup = instances.get<AccountLookupService>()
-    private val security = instances.get<AccountSecurityService>()
+    private val cache = instances.get<AccountCacheService>()
+    private val security = instances.get<AccountCredentialService>()
     private val sessions = instances.get<AccountSessionService>()
     private val settings = instances.get<UserSettingService>()
-    private val messenger = instances.get<Messenger>()
+    private val messages = instances.get<Messenger>()
     private val login = LoginWindow(instances.get(), sessions)
     private val register = RegisterWindow(instances.get(), security)
-    private val changePassword = ChangePasswordWindow(instances.get(), security, lookup)
+    private val changePassword = ChangePasswordWindow(instances.get(), security, cache)
     private val verifications = buildCache<Int, Int> { expireAfterWrite(10.minutes.toJavaDuration()) }
 
     @ImperiumCommand(["login"])
     @ClientSide
     fun onLoginCommand(sender: CommandSender) {
-        if (lookup.selectBySessionCached(sender.player.sessionKey) == null) {
+        if (cache.selectByPlayer(sender.player) == null) {
             val window = login.create(sender.player)
             window.state[REMEMBER_LOGIN_WARNING] = !settings.selectSetting(sender.player.uuid(), Setting.REMEMBER_LOGIN)
             window.show()
@@ -73,7 +72,7 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
     @ImperiumCommand(["logout"])
     @ClientSide
     suspend fun onLogoutCommand(sender: CommandSender) {
-        if (lookup.selectBySessionCached(sender.player.sessionKey) == null) {
+        if (cache.selectByPlayer(sender.player) == null) {
             sender.player.sendMessage("You are not logged in!")
         } else {
             sessions.logout(sender.player.sessionKey)
@@ -90,7 +89,7 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
     @ImperiumCommand(["verify"])
     @ClientSide
     suspend fun onVerifyCommand(sender: CommandSender) {
-        val account = lookup.selectBySessionCached(sender.player.sessionKey)
+        val account = cache.selectByPlayer(sender.player)
         if (account == null) {
             sender.error("You are not logged in!")
             return
@@ -114,7 +113,7 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
         }
 
         code = Random.nextInt(1000..9999)
-        messenger.publish(VerificationMessage(account.id, sender.player.uuid(), sender.player.usid(), code))
+        messages.publish(VerificationMessage(account.id, sender.player.uuid(), sender.player.usid(), code))
         verifications.put(account.id, code)
 
         sender.reply(
@@ -128,7 +127,7 @@ class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener 
     }
 
     override fun onImperiumInit() {
-        messenger.consumer<VerificationMessage> { message ->
+        messages.consumer<VerificationMessage> { message ->
             if (message.response && verifications.getIfPresent(message.account) == message.code) {
                 verifications.invalidate(message.account)
                 val player =

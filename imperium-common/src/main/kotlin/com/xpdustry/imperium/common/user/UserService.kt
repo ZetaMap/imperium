@@ -15,18 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.xpdustry.imperium.common.mindustry
+package com.xpdustry.imperium.common.user
 
-import com.xpdustry.imperium.common.account.MindustrySession
-
-interface MindustryRuntime {
-
-    fun addJoinListener(listener: (MindustrySession.Key) -> Unit)
-
-    fun addQuitListener(listener: (MindustrySession.Key) -> Unit)
-
-    fun addPlayerListener(
-        onJoin: suspend (MindustrySession.Key) -> Unit,
-        onQuit: suspend (MindustrySession.Key) -> Unit,
-    )
-}
+class UserService {}

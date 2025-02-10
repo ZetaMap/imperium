@@ -18,9 +18,9 @@
 package com.xpdustry.imperium.common.account
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
+import com.xpdustry.imperium.common.database.SQL
 import com.xpdustry.imperium.common.database.transaction
 import java.security.MessageDigest
-import javax.sql.DataSource
 import kotlinx.coroutines.runBlocking
 
 interface LegacyAccountRepository {
@@ -28,11 +28,10 @@ interface LegacyAccountRepository {
     suspend fun existsByUsername(username: String): Boolean
 }
 
-class SQLLegacyAccountRepository(private val source: DataSource) :
-    LegacyAccountRepository, ImperiumApplication.Listener {
+class SQLLegacyAccountRepository(private val sql: SQL) : LegacyAccountRepository, ImperiumApplication.Listener {
     override fun onImperiumInit() {
         runBlocking {
-            source.transaction { connection ->
+            sql.transaction { connection ->
                 connection
                     .prepareStatement(
                         """
@@ -85,7 +84,7 @@ class SQLLegacyAccountRepository(private val source: DataSource) :
     }
 
     override suspend fun existsByUsername(username: String) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             val hashed = MessageDigest.getInstance("SHA-256").digest(username.toByteArray())
             connection
                 .prepareStatement(

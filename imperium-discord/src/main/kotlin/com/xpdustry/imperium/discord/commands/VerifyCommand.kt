@@ -17,8 +17,8 @@
  */
 package com.xpdustry.imperium.discord.commands
 
-import com.xpdustry.imperium.common.account.AccountLookupService
-import com.xpdustry.imperium.common.account.AccountProfileService
+import com.xpdustry.imperium.common.account.AccountQueryService
+import com.xpdustry.imperium.common.account.AccountUpdateService
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.command.ImperiumCommand
@@ -41,8 +41,8 @@ import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
 class VerifyCommand(instances: InstanceManager) : ImperiumApplication.Listener {
     private val config = instances.get<ImperiumConfig>()
     private val discord = instances.get<DiscordService>()
-    private val profile = instances.get<AccountProfileService>()
-    private val lookup = instances.get<AccountLookupService>()
+    private val profile = instances.get<AccountUpdateService>()
+    private val lookup = instances.get<AccountQueryService>()
     private val limiter = SimpleRateLimiter<Long>(3, 10.minutes)
     private val messenger = instances.get<Messenger>()
     private val pending = buildCache<Int, Verification> { expireAfterWrite(10.minutes.toJavaDuration()) }

@@ -19,6 +19,20 @@ package com.xpdustry.imperium.common
 
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.xpdustry.imperium.common.account.AccountCredentialService
+import com.xpdustry.imperium.common.account.AccountQueryService
+import com.xpdustry.imperium.common.account.AccountRepository
+import com.xpdustry.imperium.common.account.AccountSessionRepository
+import com.xpdustry.imperium.common.account.AccountSessionService
+import com.xpdustry.imperium.common.account.AccountUpdateService
+import com.xpdustry.imperium.common.account.LegacyAccountRepository
+import com.xpdustry.imperium.common.account.SQLAccountRepository
+import com.xpdustry.imperium.common.account.SQLAccountSessionRepository
+import com.xpdustry.imperium.common.account.SQLLegacyAccountRepository
+import com.xpdustry.imperium.common.account.SimpleAccountCredentialService
+import com.xpdustry.imperium.common.account.SimpleAccountQueryService
+import com.xpdustry.imperium.common.account.SimpleAccountSessionService
+import com.xpdustry.imperium.common.account.SimpleAccountUpdateService
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.bridge.PlayerTracker
 import com.xpdustry.imperium.common.bridge.RequestingPlayerTracker
@@ -30,8 +44,10 @@ import com.xpdustry.imperium.common.config.NetworkConfig
 import com.xpdustry.imperium.common.config.StorageConfig
 import com.xpdustry.imperium.common.content.MindustryMapManager
 import com.xpdustry.imperium.common.content.SimpleMindustryMapManager
+import com.xpdustry.imperium.common.database.HikariSQL
 import com.xpdustry.imperium.common.database.IdentifierCodec
 import com.xpdustry.imperium.common.database.ImperiumC6B36Codec
+import com.xpdustry.imperium.common.database.SQL
 import com.xpdustry.imperium.common.database.SQLProvider
 import com.xpdustry.imperium.common.database.SimpleSQLProvider
 import com.xpdustry.imperium.common.inject.MutableInstanceManager
@@ -47,6 +63,8 @@ import com.xpdustry.imperium.common.network.SimpleDiscovery
 import com.xpdustry.imperium.common.network.VpnApiIoDetection
 import com.xpdustry.imperium.common.network.VpnDetection
 import com.xpdustry.imperium.common.security.AddressWhitelist
+import com.xpdustry.imperium.common.security.ImperiumArgon2PasswordHashFunction
+import com.xpdustry.imperium.common.security.PasswordHashFunction
 import com.xpdustry.imperium.common.security.PunishmentManager
 import com.xpdustry.imperium.common.security.SimpleAddressWhitelist
 import com.xpdustry.imperium.common.security.SimplePunishmentManager
@@ -144,6 +162,24 @@ fun MutableInstanceManager.registerCommonModule() {
             is MetricConfig.None -> MetricsRegistry.None
         }
     }
+
+    provider<PasswordHashFunction> { ImperiumArgon2PasswordHashFunction }
+
+    provider<SQL> { HikariSQL(get<ImperiumConfig>().database, get("directory")) }
+
+    provider<AccountRepository> { SQLAccountRepository(get()) }
+
+    provider<AccountSessionRepository> { SQLAccountSessionRepository(get(), get()) }
+
+    provider<LegacyAccountRepository> { SQLLegacyAccountRepository(get()) }
+
+    provider<AccountCredentialService> { SimpleAccountCredentialService(get(), get(), get(), get()) }
+
+    provider<AccountQueryService> { SimpleAccountQueryService(get()) }
+
+    provider<AccountSessionService> { SimpleAccountSessionService(get(), get(), get(), get(), get()) }
+
+    provider<AccountUpdateService> { SimpleAccountUpdateService(get(), get()) }
 }
 
 fun MutableInstanceManager.registerApplication(application: ImperiumApplication) {

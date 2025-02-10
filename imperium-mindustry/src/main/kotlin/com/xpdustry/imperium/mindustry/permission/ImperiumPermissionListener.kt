@@ -25,10 +25,9 @@ import com.xpdustry.distributor.api.permission.rank.RankNode
 import com.xpdustry.distributor.api.permission.rank.RankPermissionSource
 import com.xpdustry.distributor.api.permission.rank.RankProvider
 import com.xpdustry.distributor.api.plugin.MindustryPlugin
-import com.xpdustry.imperium.common.account.AccountLookupService
-import com.xpdustry.imperium.common.account.AccountProfileUpdateMessage
 import com.xpdustry.imperium.common.account.AccountSessionMessage
 import com.xpdustry.imperium.common.account.AccountSessionService
+import com.xpdustry.imperium.common.account.AccountUpdateMessage
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.MindustrySession
 import com.xpdustry.imperium.common.account.Rank
@@ -41,6 +40,7 @@ import com.xpdustry.imperium.common.message.consumer
 import com.xpdustry.imperium.common.user.Setting
 import com.xpdustry.imperium.common.user.SettingChangedMessage
 import com.xpdustry.imperium.common.user.UserSettingService
+import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.misc.Entities
 import com.xpdustry.imperium.mindustry.misc.registerDistributorService
 import com.xpdustry.imperium.mindustry.misc.sessionKey
@@ -51,7 +51,7 @@ import mindustry.gen.Player
 class ImperiumPermissionListener(instances: InstanceManager) : ImperiumApplication.Listener {
     private val plugin = instances.get<MindustryPlugin>()
     private val config = instances.get<ImperiumConfig>()
-    private val lookup = instances.get<AccountLookupService>()
+    private val cache = instances.get<AccountCacheService>()
     private val sessions = instances.get<AccountSessionService>()
     private val messenger = instances.get<Messenger>()
     private val settings = instances.get<UserSettingService>()
@@ -60,7 +60,7 @@ class ImperiumPermissionListener(instances: InstanceManager) : ImperiumApplicati
         registerDistributorService<RankPermissionSource>(plugin, ImperiumRankPermissionSource())
         registerDistributorService<RankProvider>(plugin, ImperiumRankProvider())
 
-        messenger.consumer<AccountProfileUpdateMessage.Rank> { message ->
+        messenger.consumer<AccountUpdateMessage.Rank> { message ->
             val keys = sessions.selectByAccount(message.account).map(MindustrySession::key)
             for (player in Entities.getPlayersAsync()) {
                 if (player.sessionKey in keys) {
@@ -91,13 +91,13 @@ class ImperiumPermissionListener(instances: InstanceManager) : ImperiumApplicati
 
     private fun syncAdminStatus(player: Player) {
         val undercover = settings.selectSetting(player.uuid(), Setting.UNDERCOVER)
-        val rank = lookup.selectBySessionCached(player.sessionKey)?.rank ?: Rank.EVERYONE
+        val rank = cache.selectByPlayer(player)?.rank ?: Rank.EVERYONE
         player.admin(if (undercover) false else rank >= Rank.OVERSEER)
     }
 
     inner class ImperiumRankProvider : RankProvider {
         override fun getRanks(player: Player): List<RankNode> {
-            val account = lookup.selectBySessionCached(player.sessionKey)
+            val account = cache.selectByPlayer(player)
             val nodes = ArrayList<RankNode>()
             nodes += EnumRankNode.linear(account?.rank ?: Rank.EVERYONE, "imperium", true)
             nodes += account?.achievements.orEmpty().map { EnumRankNode.singular(it, "imperium") }

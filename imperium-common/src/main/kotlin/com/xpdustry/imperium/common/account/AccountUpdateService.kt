@@ -22,7 +22,7 @@ import com.xpdustry.imperium.common.message.Messenger
 import kotlin.time.Duration
 import kotlinx.serialization.Serializable
 
-interface AccountProfileService {
+interface AccountUpdateService {
 
     suspend fun updateDiscord(id: Int, discord: Long)
 
@@ -39,55 +39,55 @@ interface AccountProfileService {
     suspend fun updateMetadata(id: Int, entries: Map<String, String>)
 }
 
-sealed interface AccountProfileUpdateMessage : Message {
+sealed interface AccountUpdateMessage : Message {
     val account: Int
 
-    @Serializable data class Generic(override val account: Int) : AccountProfileUpdateMessage
+    @Serializable data class Generic(override val account: Int) : AccountUpdateMessage
 
     @Serializable
     data class Achievement(
         override val account: Int,
         val achievement: com.xpdustry.imperium.common.account.Achievement,
         val completed: Boolean,
-    ) : AccountProfileUpdateMessage
+    ) : AccountUpdateMessage
 
     @Serializable
     data class Rank(override val account: Int, val rank: com.xpdustry.imperium.common.account.Rank) :
-        AccountProfileUpdateMessage
+        AccountUpdateMessage
 }
 
-class SimpleAccountProfileService(private val accounts: AccountRepository, private val messenger: Messenger) :
-    AccountProfileService {
+class SimpleAccountUpdateService(private val accounts: AccountRepository, private val messenger: Messenger) :
+    AccountUpdateService {
 
     override suspend fun updateDiscord(id: Int, discord: Long) {
         accounts.updateDiscord(id, discord)
-        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        messenger.publish(AccountUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun incrementGames(id: Int) {
         accounts.incrementGames(id)
-        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        messenger.publish(AccountUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun incrementPlaytime(id: Int, duration: Duration) {
         accounts.incrementPlaytime(id, duration)
-        messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+        messenger.publish(AccountUpdateMessage.Generic(id), local = true)
     }
 
     override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean) {
         if (accounts.updateAchievement(id, achievement, completed)) {
-            messenger.publish(AccountProfileUpdateMessage.Achievement(id, achievement, completed), local = true)
+            messenger.publish(AccountUpdateMessage.Achievement(id, achievement, completed), local = true)
         }
     }
 
     override suspend fun updateRank(id: Int, rank: Rank) {
         accounts.updateRank(id, rank)
-        messenger.publish(AccountProfileUpdateMessage.Rank(id, rank), local = true)
+        messenger.publish(AccountUpdateMessage.Rank(id, rank), local = true)
     }
 
     override suspend fun updateMetadata(id: Int, key: String, value: String) {
         if (accounts.updateMetadata(id, key, value)) {
-            messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+            messenger.publish(AccountUpdateMessage.Generic(id), local = true)
         }
     }
 
@@ -95,7 +95,7 @@ class SimpleAccountProfileService(private val accounts: AccountRepository, priva
         var changed = false
         for ((key, value) in entries) changed = changed || accounts.updateMetadata(id, key, value)
         if (changed) {
-            messenger.publish(AccountProfileUpdateMessage.Generic(id), local = true)
+            messenger.publish(AccountUpdateMessage.Generic(id), local = true)
         }
     }
 }

@@ -17,8 +17,8 @@
  */
 package com.xpdustry.imperium.discord.commands
 
-import com.xpdustry.imperium.common.account.AccountLookupService
-import com.xpdustry.imperium.common.account.AccountProfileService
+import com.xpdustry.imperium.common.account.AccountQueryService
+import com.xpdustry.imperium.common.account.AccountUpdateService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
@@ -31,8 +31,8 @@ import com.xpdustry.imperium.discord.misc.await
 import net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction
 
 class AccountCommand(instances: InstanceManager) : ImperiumApplication.Listener {
-    private val lookup = instances.get<AccountLookupService>()
-    private val profile = instances.get<AccountProfileService>()
+    private val lookup = instances.get<AccountQueryService>()
+    private val profile = instances.get<AccountUpdateService>()
     private val codec = instances.get<IdentifierCodec>()
 
     @ImperiumCommand(["account", "edit", "rank"], Rank.OWNER)

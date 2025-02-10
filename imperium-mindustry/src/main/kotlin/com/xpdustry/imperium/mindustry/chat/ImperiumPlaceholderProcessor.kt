@@ -23,84 +23,84 @@ import com.xpdustry.distributor.api.component.render.ComponentStringBuilder
 import com.xpdustry.distributor.api.key.StandardKeys
 import com.xpdustry.flex.placeholder.PlaceholderContext
 import com.xpdustry.flex.processor.Processor
-import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.user.Setting
 import com.xpdustry.imperium.common.user.UserSettingService
+import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.bridge.DiscordAudience
-import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.misc.toHexString
 import java.text.DecimalFormat
 import mindustry.graphics.Pal
 
-class ImperiumPlaceholderProcessor(private val lookup: AccountLookupService, private val settings: UserSettingService) :
+class ImperiumPlaceholderProcessor(private val cache: AccountCacheService, private val settings: UserSettingService) :
     Processor<PlaceholderContext, String?> {
 
-    override fun process(context: PlaceholderContext) =
-        when (context.query.lowercase()) {
+    override fun process(context: PlaceholderContext): String? {
+        return when (context.query.lowercase()) {
             "hours" -> {
                 val hours =
                     when (val subject = context.subject) {
                         is DiscordAudience -> subject.hours
                         is PlayerAudience ->
-                            lookup
-                                .selectBySessionCached(subject.player.sessionKey)
-                                ?.playtime
-                                ?.inWholeHours
-                                ?.takeUnless { settings.selectSetting(subject.player.uuid(), Setting.UNDERCOVER) }
+                            cache.selectByPlayer(subject.player)?.playtime?.inWholeHours?.takeUnless {
+                                settings.selectSetting(subject.player.uuid(), Setting.UNDERCOVER)
+                            }
+
                         else -> null
                     }
                 hours?.let(CHAOTIC_HOUR_FORMAT::format) ?: ""
             }
+
             "is_discord" ->
                 when (context.subject) {
                     is DiscordAudience -> "discord"
                     else -> ""
                 }
+
             "rank_color" -> {
                 val rank =
                     when (val subject = context.subject) {
                         is DiscordAudience -> subject.rank
                         is PlayerAudience ->
-                            lookup.selectBySessionCached(subject.player.sessionKey)?.rank?.takeUnless {
+                            cache.selectByPlayer(subject.player)?.rank?.takeUnless {
                                 settings.selectSetting(subject.player.uuid(), Setting.UNDERCOVER)
                             } ?: Rank.EVERYONE
+
                         else -> Rank.EVERYONE
                     }
                 rank.toColor().toHexString()
             }
+
             "name_colored" -> {
                 val audience = context.subject
+                val name = context.subject.metadata[StandardKeys.DECORATED_NAME] ?: return null
                 if (
                     audience is PlayerAudience &&
-                        Achievement.SUPPORTER in
-                            lookup.selectBySessionCached(audience.player.sessionKey)?.achievements.orEmpty() &&
+                        Achievement.SUPPORTER in cache.selectByPlayer(audience.player)?.achievements.orEmpty() &&
                         settings.selectSetting(audience.player.uuid(), Setting.RAINBOW_NAME) &&
                         !settings.selectSetting(audience.player.uuid(), Setting.UNDERCOVER)
                 ) {
-                    context.subject.metadata[StandardKeys.DECORATED_NAME]?.let {
-                        buildString {
-                            val plain = ComponentStringBuilder.plain(context.subject.metadata).append(it).toString()
-                            val initial = (((System.currentTimeMillis() / 1000L) % 60) / 60F) * 360F
-                            val color = Color().a(1F)
-                            for ((index, char) in plain.withIndex()) {
-                                color.fromHsv(initial + (index * 8F), 0.55F, 0.9F)
-                                append("[#")
-                                append(color)
-                                append(']')
-                                append(char)
-                            }
+                    buildString {
+                        val plain = ComponentStringBuilder.plain(context.subject.metadata).append(name).toString()
+                        val initial = (((System.currentTimeMillis() / 1000L) % 60) / 60F) * 360F
+                        val color = Color().a(1F)
+                        for ((index, char) in plain.withIndex()) {
+                            color.fromHsv(initial + (index * 8F), 0.55F, 0.9F)
+                            append("[#")
+                            append(color)
+                            append(']')
+                            append(char)
                         }
                     }
                 } else {
-                    context.subject.metadata[StandardKeys.NAME]?.let {
-                        ComponentStringBuilder.mindustry(context.subject.metadata).append(it).toString()
-                    }
+                    ComponentStringBuilder.mindustry(context.subject.metadata).append(name).toString()
                 }
             }
+
             else -> null
         }
+    }
 
     private fun Rank.toColor() =
         when (this) {

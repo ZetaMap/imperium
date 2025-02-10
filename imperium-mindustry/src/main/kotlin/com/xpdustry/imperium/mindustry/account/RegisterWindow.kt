@@ -27,14 +27,14 @@ import com.xpdustry.distributor.api.gui.BiAction
 import com.xpdustry.distributor.api.gui.Window
 import com.xpdustry.distributor.api.gui.WindowManager
 import com.xpdustry.distributor.api.plugin.MindustryPlugin
+import com.xpdustry.imperium.common.account.AccountCredentialService
 import com.xpdustry.imperium.common.account.AccountResult
-import com.xpdustry.imperium.common.account.AccountSecurityService
 import com.xpdustry.imperium.mindustry.gui.TextFormWindowManager
 import com.xpdustry.imperium.mindustry.misc.CoroutineAction
 import com.xpdustry.imperium.mindustry.misc.asAudience
 import com.xpdustry.imperium.mindustry.translation.gui_failure_password_mismatch
 
-fun RegisterWindow(plugin: MindustryPlugin, security: AccountSecurityService): WindowManager =
+fun RegisterWindow(plugin: MindustryPlugin, security: AccountCredentialService): WindowManager =
     TextFormWindowManager<RegisterPage>(
         plugin,
         "register",

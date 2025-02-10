@@ -18,8 +18,8 @@
 package com.xpdustry.imperium.common.user
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
+import com.xpdustry.imperium.common.database.SQL
 import com.xpdustry.imperium.common.database.mapTo
-import com.xpdustry.imperium.common.database.transaction
 import com.xpdustry.imperium.common.misc.MindustryUUID
 import com.xpdustry.imperium.common.misc.toCRC32Muuid
 import com.xpdustry.imperium.common.misc.toShortMuuid
@@ -27,14 +27,13 @@ import java.net.InetAddress
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.Statement
-import javax.sql.DataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 
 interface UserRepository {
 
-    suspend fun upsert(uuid: MindustryUUID, name: String, address: InetAddress): Int
+    suspend fun upsertUser(uuid: MindustryUUID, name: String, address: InetAddress): Int
 
     suspend fun searchByName(query: String): Flow<User>
 
@@ -55,11 +54,10 @@ interface UserRepository {
     suspend fun updateSetting(uuid: MindustryUUID, setting: Setting, value: Boolean)
 }
 
-class SQLUserRepository(private val source: DataSource) : UserRepository, ImperiumApplication.Listener {
-
+class SQLUserRepository(private val sql: SQL) : UserRepository, ImperiumApplication.Listener {
     override fun onImperiumInit() {
         runBlocking {
-            source.transaction { connection ->
+            sql.transaction { connection ->
                 connection
                     .prepareStatement(
                         """
@@ -139,8 +137,8 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
         }
     }
 
-    override suspend fun upsert(uuid: MindustryUUID, name: String, address: InetAddress): Int =
-        source.transaction { connection ->
+    override suspend fun upsertUser(uuid: MindustryUUID, name: String, address: InetAddress): Int =
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -195,7 +193,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
         }
 
     override suspend fun searchByName(query: String) = flow {
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -217,7 +215,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
     }
 
     override suspend fun selectById(id: Int) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -262,7 +260,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
     }
 
     override suspend fun selectNamesAndAddressesById(id: Int): User.NamesAndAddresses =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             val names =
                 connection
                     .prepareStatement(
@@ -299,7 +297,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
         }
 
     override suspend fun incrementJoins(uuid: MindustryUUID) {
-        source.transaction { connection ->
+        sql.transaction { connection ->
             val id = selectIdByUuid(connection, uuid) ?: return@transaction
 
             connection
@@ -320,7 +318,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
     }
 
     override suspend fun selectSetting(uuid: MindustryUUID, setting: Setting): Boolean =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             val id = selectIdByUuid(connection, uuid) ?: return@transaction setting.default
 
             connection
@@ -344,7 +342,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
         }
 
     override suspend fun selectSettings(uuid: MindustryUUID): Map<Setting, Boolean> =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             val id = selectIdByUuid(connection, uuid) ?: return@transaction emptyMap()
 
             connection
@@ -370,7 +368,7 @@ class SQLUserRepository(private val source: DataSource) : UserRepository, Imperi
         }
 
     override suspend fun updateSetting(uuid: MindustryUUID, setting: Setting, value: Boolean): Unit =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             val id = selectIdByUuid(connection, uuid) ?: return@transaction
 
             connection

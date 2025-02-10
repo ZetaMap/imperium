@@ -18,11 +18,11 @@
 package com.xpdustry.imperium.common.account
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
+import com.xpdustry.imperium.common.database.SQL
 import com.xpdustry.imperium.common.database.transaction
 import java.net.InetAddress
 import java.sql.Statement
 import java.sql.Timestamp
-import javax.sql.DataSource
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.runBlocking
@@ -40,12 +40,12 @@ interface AccountSessionRepository {
     suspend fun deleteByAccount(id: Int): Boolean
 }
 
-class SQLSessionRepository(private val source: DataSource, private val accounts: AccountRepository) :
+class SQLAccountSessionRepository(private val sql: SQL, private val accounts: AccountRepository) :
     AccountSessionRepository, ImperiumApplication.Listener {
 
     override fun onImperiumInit() {
         runBlocking {
-            source.transaction { connection ->
+            sql.transaction { connection ->
                 connection
                     .prepareStatement(
                         """
@@ -74,7 +74,7 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun upsertSession(session: MindustrySession): Int? {
         if (!accounts.existsById(session.account)) return null
-        return source.transaction { connection ->
+        return sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -100,7 +100,7 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
 
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun selectByKey(key: MindustrySession.Key) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -129,7 +129,7 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
 
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun deleteByKey(key: MindustrySession.Key): Boolean =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -148,7 +148,7 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
 
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun selectByAccount(id: Int) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -181,7 +181,7 @@ class SQLSessionRepository(private val source: DataSource, private val accounts:
         }
 
     override suspend fun deleteByAccount(id: Int) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """

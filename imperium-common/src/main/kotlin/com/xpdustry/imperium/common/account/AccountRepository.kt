@@ -19,13 +19,13 @@ package com.xpdustry.imperium.common.account
 
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.collection.enumSetOf
+import com.xpdustry.imperium.common.database.SQL
 import com.xpdustry.imperium.common.database.transaction
 import com.xpdustry.imperium.common.security.PasswordHash
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.Statement
-import javax.sql.DataSource
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
@@ -44,15 +44,15 @@ interface AccountRepository {
 
     suspend fun selectByDiscord(discord: Long): Account?
 
-    suspend fun updateDiscord(id: Int, discord: Long)
+    suspend fun updateDiscord(id: Int, discord: Long): Boolean
 
-    suspend fun incrementGames(id: Int)
+    suspend fun incrementGames(id: Int): Boolean
 
-    suspend fun incrementPlaytime(id: Int, duration: Duration)
+    suspend fun incrementPlaytime(id: Int, duration: Duration): Boolean
 
     suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Boolean
 
-    suspend fun updateRank(id: Int, rank: Rank)
+    suspend fun updateRank(id: Int, rank: Rank): Boolean
 
     suspend fun updatePassword(id: Int, password: PasswordHash)
 
@@ -61,11 +61,11 @@ interface AccountRepository {
     suspend fun selectPasswordById(id: Int): PasswordHash?
 }
 
-class SQLAccountRepository(private val source: DataSource) : AccountRepository, ImperiumApplication.Listener {
+class SQLAccountRepository(private val sql: SQL) : AccountRepository, ImperiumApplication.Listener {
 
     override fun onImperiumInit() {
         runBlocking {
-            source.transaction { connection ->
+            sql.transaction { connection ->
                 connection
                     .prepareStatement(
                         """
@@ -140,7 +140,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
     }
 
     override suspend fun insertAccount(username: String, password: PasswordHash) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -165,13 +165,13 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
     override suspend fun selectById(id: Int) =
         selectBy0(
             """
-        SELECT * FROM `account` WHERE `id` = ?
-        """
+            SELECT * FROM `account` WHERE `id` = ?
+            """
         ) {
             it.setInt(1, id)
         }
 
-    override suspend fun existsById(id: Int) = source.transaction { connection -> existsById(connection, id) }
+    override suspend fun existsById(id: Int) = sql.transaction { connection -> existsById(connection, id) }
 
     override suspend fun selectByUsername(username: String) =
         selectBy0(
@@ -184,7 +184,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
         }
 
     override suspend fun existsByUsername(username: String) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """
@@ -202,10 +202,16 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
         }
 
     override suspend fun selectByDiscord(discord: Long) =
-        selectBy0("SELECT * FROM `account` WHERE `discord` = ?") { it.setLong(1, discord) }
+        selectBy0(
+            """
+            SELECT * FROM `account` WHERE `discord` = ?
+            """
+        ) {
+            it.setLong(1, discord)
+        }
 
     private suspend inline fun selectBy0(query: String, crossinline params: (PreparedStatement) -> Unit) =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection.prepareStatement(query).use { statement ->
                 params(statement)
                 statement.executeQuery().use { result ->
@@ -263,8 +269,8 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
             }
         }
 
-    override suspend fun updateDiscord(id: Int, discord: Long): Unit =
-        source.transaction { connection ->
+    override suspend fun updateDiscord(id: Int, discord: Long): Boolean =
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
@@ -279,12 +285,12 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 .use { statement ->
                     statement.setLong(1, discord)
                     statement.setInt(2, id)
-                    statement.executeUpdate()
+                    statement.executeUpdate() > 0
                 }
         }
 
-    override suspend fun incrementGames(id: Int): Unit =
-        source.transaction { connection ->
+    override suspend fun incrementGames(id: Int): Boolean =
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
@@ -298,12 +304,12 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 )
                 .use { statement ->
                     statement.setInt(1, id)
-                    statement.executeUpdate()
+                    statement.executeUpdate() > 0
                 }
         }
 
-    override suspend fun incrementPlaytime(id: Int, duration: Duration): Unit =
-        source.transaction { connection ->
+    override suspend fun incrementPlaytime(id: Int, duration: Duration): Boolean =
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
@@ -318,12 +324,12 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 .use { statement ->
                     statement.setLong(1, duration.inWholeSeconds)
                     statement.setInt(2, id)
-                    statement.executeUpdate()
+                    statement.executeUpdate() > 0
                 }
         }
 
     override suspend fun updateAchievement(id: Int, achievement: Achievement, completed: Boolean): Boolean =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             if (completed) {
                 connection
@@ -357,8 +363,8 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
             }
         }
 
-    override suspend fun updateRank(id: Int, rank: Rank): Unit =
-        source.transaction { connection ->
+    override suspend fun updateRank(id: Int, rank: Rank): Boolean =
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
@@ -373,12 +379,12 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
                 .use { statement ->
                     statement.setString(1, rank.name)
                     statement.setInt(2, id)
-                    statement.executeUpdate()
+                    statement.executeUpdate() > 0
                 }
         }
 
     override suspend fun updatePassword(id: Int, password: PasswordHash): Unit =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
@@ -399,7 +405,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
         }
 
     override suspend fun updateMetadata(id: Int, key: String, value: String): Boolean =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             ensureAccountExists(connection, id)
             connection
                 .prepareStatement(
@@ -435,7 +441,7 @@ class SQLAccountRepository(private val source: DataSource) : AccountRepository, 
             }
 
     override suspend fun selectPasswordById(id: Int): PasswordHash? =
-        source.transaction { connection ->
+        sql.transaction { connection ->
             connection
                 .prepareStatement(
                     """

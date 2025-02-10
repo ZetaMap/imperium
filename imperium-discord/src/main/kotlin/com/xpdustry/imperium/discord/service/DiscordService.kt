@@ -17,7 +17,7 @@
  */
 package com.xpdustry.imperium.discord.service
 
-import com.xpdustry.imperium.common.account.AccountLookupService
+import com.xpdustry.imperium.common.account.AccountQueryService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
@@ -61,7 +61,7 @@ interface DiscordService {
 class SimpleDiscordService(
     private val config: ImperiumConfig,
     private val http: OkHttpClient,
-    private val accounts: AccountLookupService,
+    private val accounts: AccountQueryService,
 ) : DiscordService, ImperiumApplication.Listener {
     override lateinit var jda: JDA
 

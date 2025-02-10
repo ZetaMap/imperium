@@ -21,17 +21,16 @@ import arc.math.Mathf
 import arc.util.Interval
 import com.xpdustry.distributor.api.annotation.TriggerHandler
 import com.xpdustry.distributor.api.command.CommandSender
-import com.xpdustry.imperium.common.account.AccountLookupService
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.application.ImperiumApplication
 import com.xpdustry.imperium.common.command.ImperiumCommand
 import com.xpdustry.imperium.common.inject.InstanceManager
 import com.xpdustry.imperium.common.inject.get
+import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.command.annotation.ClientSide
 import com.xpdustry.imperium.mindustry.command.annotation.RequireAchievement
 import com.xpdustry.imperium.mindustry.misc.asAudience
-import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.translation.formation_failure_dead
 import com.xpdustry.imperium.mindustry.translation.formation_failure_no_valid_unit
 import com.xpdustry.imperium.mindustry.translation.formation_failure_require_enabled
@@ -53,7 +52,7 @@ import mindustry.gen.Unit as MindustryUnit
 
 class FormationListener(instances: InstanceManager) : ImperiumApplication.Listener {
 
-    private val lookup = instances.get<AccountLookupService>()
+    private val cache = instances.get<AccountCacheService>()
     private val interval = Interval()
     private val formations = mutableMapOf<Int, FormationContext>()
 
@@ -149,7 +148,7 @@ class FormationListener(instances: InstanceManager) : ImperiumApplication.Listen
             return
         }
 
-        val account = lookup.selectBySessionCached(sender.player.sessionKey)
+        val account = cache.selectByPlayer(sender.player)
         var slots = 4
         if (account != null) {
             slots =
@@ -183,7 +182,7 @@ class FormationListener(instances: InstanceManager) : ImperiumApplication.Listen
     @RequireAchievement(Achievement.ACTIVE)
     @ClientSide
     fun onFormationPatternCommand(sender: CommandSender, pattern: FormationPatternEntry? = null) {
-        val rank = lookup.selectBySessionCached(sender.player.sessionKey)!!.rank
+        val rank = cache.selectByPlayer(sender.player)!!.rank
         if (pattern == null) {
             sender.reply(formation_pattern_list(rank))
             return
