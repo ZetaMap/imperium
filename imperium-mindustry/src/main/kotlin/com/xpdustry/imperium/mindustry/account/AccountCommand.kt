@@ -30,11 +30,11 @@ import com.xpdustry.imperium.common.message.consumer
 import com.xpdustry.imperium.common.misc.buildCache
 import com.xpdustry.imperium.common.security.VerificationMessage
 import com.xpdustry.imperium.common.user.Setting
-import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.command.annotation.ClientSide
 import com.xpdustry.imperium.mindustry.misc.Entities
 import com.xpdustry.imperium.mindustry.misc.sessionKey
 import com.xpdustry.imperium.mindustry.misc.showInfoMessage
+import com.xpdustry.imperium.mindustry.user.UserSettingService
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.time.Duration.Companion.minutes

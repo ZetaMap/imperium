@@ -25,8 +25,8 @@ import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.misc.MindustryUUID
 import com.xpdustry.imperium.common.misc.buildCache
 import com.xpdustry.imperium.common.user.Setting
-import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.misc.Entities
+import com.xpdustry.imperium.mindustry.user.UserSettingService
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.toJavaDuration
 import mindustry.game.EventType

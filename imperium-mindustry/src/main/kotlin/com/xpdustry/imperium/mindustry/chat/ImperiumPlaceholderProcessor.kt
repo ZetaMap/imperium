@@ -26,10 +26,10 @@ import com.xpdustry.flex.processor.Processor
 import com.xpdustry.imperium.common.account.Achievement
 import com.xpdustry.imperium.common.account.Rank
 import com.xpdustry.imperium.common.user.Setting
-import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.bridge.DiscordAudience
 import com.xpdustry.imperium.mindustry.misc.toHexString
+import com.xpdustry.imperium.mindustry.user.UserSettingService
 import java.text.DecimalFormat
 import mindustry.graphics.Pal
 

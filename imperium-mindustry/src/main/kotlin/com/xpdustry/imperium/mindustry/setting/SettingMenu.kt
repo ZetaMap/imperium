@@ -27,9 +27,9 @@ import com.xpdustry.distributor.api.gui.Window
 import com.xpdustry.distributor.api.gui.menu.MenuManager
 import com.xpdustry.distributor.api.gui.menu.MenuOption
 import com.xpdustry.distributor.api.plugin.MindustryPlugin
-import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.component.status
 import com.xpdustry.imperium.mindustry.misc.CoroutineAction
+import com.xpdustry.imperium.mindustry.user.UserSettingService
 
 @Suppress("FunctionName")
 internal fun SettingMenu(plugin: MindustryPlugin, settings: UserSettingService): MenuManager {

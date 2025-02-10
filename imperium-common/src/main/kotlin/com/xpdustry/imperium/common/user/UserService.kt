@@ -17,4 +17,54 @@
  */
 package com.xpdustry.imperium.common.user
 
-class UserService {}
+import com.xpdustry.imperium.common.misc.MindustryUUID
+import java.net.InetAddress
+import kotlinx.coroutines.flow.Flow
+
+interface UserService {
+
+    suspend fun upsertUser(uuid: MindustryUUID, name: String, address: InetAddress): Int
+
+    suspend fun searchByName(query: String): Flow<User>
+
+    suspend fun selectById(id: Int): User?
+
+    suspend fun selectByUuid(uuid: MindustryUUID): User?
+
+    suspend fun selectByAddress(address: InetAddress): Flow<User>
+
+    suspend fun selectNamesAndAddressesById(id: Int): User.NamesAndAddresses
+
+    suspend fun incrementJoins(uuid: MindustryUUID)
+}
+
+class SimpleUserService(private val repository: UserRepository) : UserService {
+
+    override suspend fun upsertUser(uuid: MindustryUUID, name: String, address: InetAddress): Int {
+        return repository.upsertUser(uuid, name, address)
+    }
+
+    override suspend fun searchByName(query: String): Flow<User> {
+        return repository.searchByName(query)
+    }
+
+    override suspend fun selectById(id: Int): User? {
+        return repository.selectById(id)
+    }
+
+    override suspend fun selectByUuid(uuid: MindustryUUID): User? {
+        return repository.selectByUuid(uuid)
+    }
+
+    override suspend fun selectByAddress(address: InetAddress): Flow<User> {
+        return repository.selectByAddress(address)
+    }
+
+    override suspend fun selectNamesAndAddressesById(id: Int): User.NamesAndAddresses {
+        return repository.selectNamesAndAddressesById(id)
+    }
+
+    override suspend fun incrementJoins(uuid: MindustryUUID) {
+        repository.incrementJoins(uuid)
+    }
+}

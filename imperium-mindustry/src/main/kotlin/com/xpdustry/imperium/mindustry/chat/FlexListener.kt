@@ -37,9 +37,9 @@ import com.xpdustry.imperium.common.misc.BLURPLE
 import com.xpdustry.imperium.common.misc.containsLink
 import com.xpdustry.imperium.common.misc.toHexString
 import com.xpdustry.imperium.common.user.Setting
-import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.translation.SCARLET
+import com.xpdustry.imperium.mindustry.user.UserSettingService
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
 import mindustry.gen.Iconc

@@ -38,12 +38,12 @@ import com.xpdustry.imperium.common.inject.get
 import com.xpdustry.imperium.common.message.Messenger
 import com.xpdustry.imperium.common.message.consumer
 import com.xpdustry.imperium.common.user.Setting
-import com.xpdustry.imperium.common.user.SettingChangedMessage
-import com.xpdustry.imperium.common.user.UserSettingService
 import com.xpdustry.imperium.mindustry.account.AccountCacheService
 import com.xpdustry.imperium.mindustry.misc.Entities
 import com.xpdustry.imperium.mindustry.misc.registerDistributorService
 import com.xpdustry.imperium.mindustry.misc.sessionKey
+import com.xpdustry.imperium.mindustry.user.UserSettingService
+import com.xpdustry.imperium.mindustry.user.UserSettingUpdateMessage
 import java.util.Collections
 import mindustry.game.EventType
 import mindustry.gen.Player
@@ -73,7 +73,7 @@ class ImperiumPermissionListener(instances: InstanceManager) : ImperiumApplicati
             syncAdminStatus(Entities.getPlayersAsync().find { it.sessionKey == message.player } ?: return@consumer)
         }
 
-        messenger.consumer<SettingChangedMessage> { message ->
+        messenger.consumer<UserSettingUpdateMessage> { message ->
             if (message.setting == Setting.UNDERCOVER) {
                 for (player in Entities.getPlayersAsync()) {
                     if (player.uuid() == message.player) {

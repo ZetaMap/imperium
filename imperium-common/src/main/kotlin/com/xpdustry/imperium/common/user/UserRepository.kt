@@ -41,7 +41,7 @@ interface UserRepository {
 
     suspend fun selectByUuid(uuid: MindustryUUID): User?
 
-    suspend fun selectByLastAddress(address: InetAddress): List<User>
+    suspend fun selectByAddress(address: InetAddress): Flow<User>
 
     suspend fun selectNamesAndAddressesById(id: Int): User.NamesAndAddresses
 
@@ -255,7 +255,7 @@ class SQLUserRepository(private val sql: SQL) : UserRepository, ImperiumApplicat
         TODO("Not yet implemented")
     }
 
-    override suspend fun selectByLastAddress(address: InetAddress): List<User> {
+    override suspend fun selectByAddress(address: InetAddress): Flow<User> {
         TODO("Not yet implemented")
     }
 
@@ -265,10 +265,10 @@ class SQLUserRepository(private val sql: SQL) : UserRepository, ImperiumApplicat
                 connection
                     .prepareStatement(
                         """
-                    SELECT `name`
-                    FROM `user_name`
-                    WHERE `user_id` = ?
-                    """
+                        SELECT `name`
+                        FROM `user_name`
+                        WHERE `user_id` = ?
+                        """
                             .trimIndent()
                     )
                     .use { statement ->
